@@ -17,39 +17,109 @@ export interface CountrySubjects {
  */
 export const COUNTRY_SUBJECTS: CountrySubjects = {
   // South Africa - CAPS/NSC Curriculum (Matric)
+  // Source: Department of Basic Education (DBE) - education.gov.za
+  // Official CAPS documents and NSC Subject Choice requirements
   'ZA': {
     subjects: [
-      { standardName: 'Math', displayName: 'Mathematics', required: true },
+      // Compulsory Subjects (4 required for NSC)
+      // Note: Mathematics OR Mathematical Literacy (one required, not both - handled in component)
+      { standardName: 'Math', displayName: 'Mathematics', required: false },
       { standardName: 'MathLiteracy', displayName: 'Mathematical Literacy', required: false },
       { standardName: 'English', displayName: 'English (Home Language)', required: true },
-      { standardName: 'EnglishFAL', displayName: 'English (First Additional Language)', required: false },
+      { standardName: 'EnglishFAL', displayName: 'English (First Additional Language)', required: true },
       { standardName: 'Afrikaans', displayName: 'Afrikaans (First Additional Language)', required: false },
+      { standardName: 'Zulu', displayName: 'isiZulu (Home Language/First Additional Language)', required: false },
+      { standardName: 'Xhosa', displayName: 'isiXhosa (Home Language/First Additional Language)', required: false },
+      { standardName: 'Sesotho', displayName: 'Sesotho (Home Language/First Additional Language)', required: false },
+      { standardName: 'Setswana', displayName: 'Setswana (Home Language/First Additional Language)', required: false },
       { standardName: 'LifeOrientation', displayName: 'Life Orientation', required: true },
+      
+      // Sciences (Elective)
       { standardName: 'Physics', displayName: 'Physical Sciences', required: false },
       { standardName: 'Chemistry', displayName: 'Chemistry (part of Physical Sciences)', required: false },
       { standardName: 'Biology', displayName: 'Life Sciences', required: false },
+      { standardName: 'AgriculturalSciences', displayName: 'Agricultural Sciences', required: false },
+      
+      // Business & Commerce (Elective)
       { standardName: 'Accounting', displayName: 'Accounting', required: false },
       { standardName: 'BusinessStudies', displayName: 'Business Studies', required: false },
       { standardName: 'Economics', displayName: 'Economics', required: false },
+      
+      // Humanities (Elective)
       { standardName: 'History', displayName: 'History', required: false },
       { standardName: 'Geography', displayName: 'Geography', required: false },
+      
+      // Technology (Elective)
       { standardName: 'IT', displayName: 'Information Technology', required: false },
       { standardName: 'CAT', displayName: 'Computer Applications Technology', required: false },
-      { standardName: 'EGD', displayName: 'Engineering Graphics and Design', required: false }
+      { standardName: 'EGD', displayName: 'Engineering Graphics and Design', required: false },
+      
+      // Arts (Elective)
+      { standardName: 'VisualArts', displayName: 'Visual Arts', required: false },
+      { standardName: 'DramaticArts', displayName: 'Dramatic Arts', required: false },
+      { standardName: 'Music', displayName: 'Music', required: false },
+      
+      // Other Electives
+      { standardName: 'Tourism', displayName: 'Tourism', required: false },
+      { standardName: 'ConsumerStudies', displayName: 'Consumer Studies', required: false },
+      { standardName: 'HospitalityStudies', displayName: 'Hospitality Studies', required: false },
+      { standardName: 'Design', displayName: 'Design', required: false }
     ],
     subjectAliases: {
+      // Mathematics
       'Mathematics': 'Math',
+      'Maths': 'Math',
       'Mathematical Literacy': 'MathLiteracy',
+      'Math Literacy': 'MathLiteracy',
+      
+      // Languages
+      'English Home Language': 'English',
+      'English HL': 'English',
+      'English First Additional Language': 'EnglishFAL',
+      'English FAL': 'EnglishFAL',
+      'Afrikaans First Additional Language': 'Afrikaans',
+      'Afrikaans FAL': 'Afrikaans',
+      'Afrikaans Home Language': 'Afrikaans',
+      'Afrikaans HL': 'Afrikaans',
+      'isiZulu': 'Zulu',
+      'isiZulu Home Language': 'Zulu',
+      'isiZulu First Additional Language': 'Zulu',
+      'isiXhosa': 'Xhosa',
+      'isiXhosa Home Language': 'Xhosa',
+      'isiXhosa First Additional Language': 'Xhosa',
+      'Sesotho Home Language': 'Sesotho',
+      'Sesotho First Additional Language': 'Sesotho',
+      'Setswana Home Language': 'Setswana',
+      'Setswana First Additional Language': 'Setswana',
+      
+      // Sciences
       'Physical Sciences': 'Physics',
+      'Physical Science': 'Physics',
       'Chemistry (part of Physical Sciences)': 'Chemistry',
       'Life Sciences': 'Biology',
-      'English Home Language': 'English',
-      'English First Additional Language': 'EnglishFAL',
-      'Afrikaans First Additional Language': 'Afrikaans',
+      'Life Science': 'Biology',
+      'Agricultural Sciences': 'AgriculturalSciences',
+      'Agricultural Science': 'AgriculturalSciences',
+      'Agriculture': 'AgriculturalSciences',
+      
+      // Technology
       'Computer Applications Technology': 'CAT',
+      'Computer Applications Tech': 'CAT',
       'Information Technology': 'IT',
-      'Computer': 'IT', // Alias for generic Computer
-      'Engineering Graphics and Design': 'EGD'
+      'Engineering Graphics and Design': 'EGD',
+      'Engineering Graphics': 'EGD',
+      'Computer': 'IT',
+      'Computers': 'IT',
+      
+      // Arts
+      'Visual Arts': 'VisualArts',
+      'Dramatic Arts': 'DramaticArts',
+      'Drama': 'DramaticArts',
+      
+      // Other
+      'Consumer Studies': 'ConsumerStudies',
+      'Hospitality Studies': 'HospitalityStudies',
+      'Hospitality': 'HospitalityStudies'
     }
   },
   

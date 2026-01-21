@@ -119,21 +119,15 @@ export class AnnouncementsService {
       let passesFilter = true;
       const reasons: string[] = [];
 
-      // Filter by country - if announcement specifies countries, user must match
-      // If announcement has no country restrictions, show to all
       if (announcement.targetCountries && announcement.targetCountries.length > 0) {
-        // Announcement has country restrictions
         if (!country) {
-          // User hasn't selected country, don't show country-specific announcements
           passesFilter = false;
           reasons.push('no country selected but announcement requires country');
         } else if (!announcement.targetCountries.includes(country)) {
-          // User's country doesn't match announcement's target countries
           passesFilter = false;
           reasons.push(`country ${country} not in ${announcement.targetCountries.join(', ')}`);
         }
       }
-      // If announcement has no country restrictions, show to all (including when country is selected)
 
       // Filter by career - only if both user selected career AND announcement specifies careers
       if (career && announcement.targetCareers && announcement.targetCareers.length > 0) {

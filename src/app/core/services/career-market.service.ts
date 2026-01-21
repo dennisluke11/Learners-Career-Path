@@ -4,9 +4,11 @@ import { Observable, of } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GeminiRateLimitService } from './gemini-rate-limit.service';
+import { FirebaseService } from './firebase.service';
 
 export interface JobOpening {
-  source: string; // e.g., "LinkedIn", "Indeed", "Glassdoor"
+  source: string;
   title: string;
   company?: string;
   location?: string;
@@ -17,12 +19,12 @@ export interface SalaryRange {
   min: number;
   max: number;
   currency: string;
-  period: string; // "yearly", "monthly"
+  period: string;
   source?: string;
 }
 
 export interface JobCountBySite {
-  site: string; // "LinkedIn", "Indeed", "Glassdoor", etc.
+  site: string;
   count: number;
 }
 
@@ -35,10 +37,10 @@ export interface SalaryRangeByLevel {
 export interface CareerMarketData {
   careerName: string;
   jobOpenings: JobOpening[];
-  salaryRange: SalaryRange | null; // Deprecated - use salaryRangesByLevel instead
-  salaryRangesByLevel?: SalaryRangeByLevel; // Junior to Senior salary ranges
-  totalJobCount?: number; // Total jobs from all sites in last 12 months
-  jobCountsBySite?: JobCountBySite[]; // Job counts per site
+  salaryRange: SalaryRange | null;
+  salaryRangesByLevel?: SalaryRangeByLevel;
+  totalJobCount?: number;
+  jobCountsBySite?: JobCountBySite[];
   marketTrend: 'growing' | 'stable' | 'declining' | 'unknown';
   lastUpdated: Date;
   loading?: boolean;
@@ -48,11 +50,21 @@ export interface CareerMarketData {
 @Injectable({ providedIn: 'root' })
 export class CareerMarketService {
   private cache: { [careerName: string]: CareerMarketData } = {};
-  private cacheExpiry = 24 * 60 * 60 * 1000; // 24 hours
+  private cacheExpiry = 24 * 60 * 60 * 1000;
   private genAI: GoogleGenerativeAI | null = null;
   private useFirebaseFunctions: boolean = false;
+  private readonly FREE_TIER_MODELS = [
+    'gemini-2.0-flash-lite',
+    'gemini-2.5-flash-lite',
+    'gemini-2.0-flash',
+    'gemini-1.5-flash'
+  ];
 
-  constructor(private http: HttpClient) {
+  constructor(
+    private http: HttpClient,
+    private rateLimitService: GeminiRateLimitService,
+    private firebaseService: FirebaseService
+  ) {
     this.useFirebaseFunctions = environment.useFirebaseFunctions || false;
     
     if (!this.useFirebaseFunctions && environment.geminiApiKey) {
@@ -65,28 +77,72 @@ export class CareerMarketService {
   }
 
   getMarketData(careerName: string, countryCode?: string): Observable<CareerMarketData> {
-    const cached = this.cache[careerName];
+    const cacheKey = `${careerName}_${countryCode || 'default'}`;
+    const cached = this.cache[cacheKey];
     if (cached && this.isCacheValid(cached)) {
       return of(cached);
     }
 
+    if (this.firebaseService.isAvailable()) {
+      return this.getMarketDataFromFirestore(careerName, countryCode);
+    }
     if (this.useFirebaseFunctions) {
       return this.getMarketDataViaFunctions(careerName, countryCode);
     }
 
     if (!environment.geminiApiKey || !this.genAI) {
       return new Observable<CareerMarketData>(observer => {
-        this.getDefaultMarketData(careerName, countryCode).then(data => {
-          observer.next(data);
+        observer.error(new Error('Market data unavailable: Firebase and AI are not configured.'));
           observer.complete();
-        });
       });
     }
 
     const prompt = this.buildMarketDataPrompt(careerName, countryCode);
-
     return new Observable<CareerMarketData>(observer => {
       this.listAndUseAvailableModel(prompt, careerName, countryCode, observer);
+    });
+  }
+
+  private getMarketDataFromFirestore(careerName: string, countryCode?: string): Observable<CareerMarketData> {
+    return new Observable<CareerMarketData>(observer => {
+      const docId = countryCode ? `${careerName}_${countryCode}` : careerName;
+      
+      this.firebaseService.getDocument('marketData', docId).then((data: any) => {
+        if (data) {
+          const marketData: CareerMarketData = {
+            careerName: data.careerName || careerName,
+            jobOpenings: [],
+            salaryRange: data.salaryRangesByLevel?.mid || null,
+            salaryRangesByLevel: data.salaryRangesByLevel,
+            totalJobCount: data.totalJobCount,
+            jobCountsBySite: data.jobCountsBySite,
+            marketTrend: data.marketTrend || 'unknown',
+            lastUpdated: data.lastUpdated?.toDate() || new Date(),
+            loading: false,
+            error: false
+          };
+
+          const cacheKey = `${careerName}_${countryCode || 'default'}`;
+          this.cache[cacheKey] = marketData;
+          
+          console.log(`✅ Loaded market data for ${careerName} from Firestore`);
+          observer.next(marketData);
+          observer.complete();
+        } else {
+          console.warn(`⚠️ Market data not found in Firestore for ${careerName}, trying AI...`);
+          if (environment.geminiApiKey && this.genAI) {
+            const prompt = this.buildMarketDataPrompt(careerName, countryCode);
+            this.listAndUseAvailableModel(prompt, careerName, countryCode, observer);
+          } else {
+            observer.error(new Error(`Market data not found for ${careerName} in Firestore. Please run populate-market-data-firestore.js`));
+            observer.complete();
+          }
+        }
+      }).catch((error: any) => {
+        console.error('Error fetching market data from Firestore:', error);
+        observer.error(error);
+        observer.complete();
+      });
     });
   }
 
@@ -96,47 +152,7 @@ export class CareerMarketService {
     countryCode: string | undefined,
     observer: any
   ): Promise<void> {
-    try {
-      const apiKey = environment.geminiApiKey;
-      const listUrls = [
-        `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`,
-        `https://generativelanguage.googleapis.com/v1/models?key=${apiKey}`
-      ];
-
-      let availableModels: string[] = [];
-
-      for (const url of listUrls) {
-        try {
-          const response: any = await this.http.get(url).toPromise();
-          if (response && response.models) {
-            availableModels = response.models
-              .map((m: any) => m.name.replace('models/', ''))
-              .filter((name: string) => name.includes('gemini'));
-            break;
-          }
-        } catch (error) {
-          continue;
-        }
-      }
-
-      if (availableModels.length === 0) {
-        console.warn('No Gemini models found. Using AI-generated defaults.');
-        this.getDefaultMarketData(careerName, countryCode).then(data => {
-          observer.next(data);
-          observer.complete();
-        });
-        return;
-      }
-
-      this.tryGeminiModelsWithSDK([availableModels[0]], prompt, careerName, countryCode, observer);
-
-    } catch (error) {
-      console.error('Error listing models:', error);
-      this.getDefaultMarketData(careerName, countryCode).then(data => {
-        observer.next(data);
-        observer.complete();
-      });
-    }
+    this.tryGeminiModelsWithSDK(this.FREE_TIER_MODELS, prompt, careerName, countryCode, observer);
   }
 
   private tryGeminiModelsWithSDK(
@@ -147,11 +163,19 @@ export class CareerMarketService {
     observer: any
   ): void {
     if (modelNames.length === 0) {
-      console.warn('All Gemini models failed, using AI-generated defaults');
-      this.getDefaultMarketData(careerName, countryCode).then(data => {
-        observer.next(data);
+      console.error('All Gemini models failed');
+      observer.error(new Error(`Failed to generate market data for ${careerName}. Please ensure data is in Firestore or AI is configured.`));
+      observer.complete();
+      return;
+    }
+
+    const rateLimitCheck = this.rateLimitService.canMakeRequest();
+    if (!rateLimitCheck.allowed) {
+      console.warn(`⚠️ Rate limit: ${rateLimitCheck.reason}`);
+      const stats = this.rateLimitService.getUsageStats();
+      console.log(`📊 Gemini API Usage: ${stats.requestsToday}/${stats.dailyLimit} today, ${stats.remainingToday} remaining`);
+      observer.error(new Error(`Rate limit exceeded. Market data not available for ${careerName}. Please try again later or ensure data is in Firestore.`));
         observer.complete();
-      });
       return;
     }
 
@@ -164,7 +188,8 @@ export class CareerMarketService {
         generationConfig: {
           temperature: 0.3,
           topP: 0.95,
-          topK: 40
+          topK: 40,
+          responseMimeType: 'application/json'
         }
       });
 
@@ -184,7 +209,7 @@ export class CareerMarketService {
           const marketData: CareerMarketData = {
             careerName,
             jobOpenings: data.jobOpenings || [],
-            salaryRange: data.salaryRange || null, // Keep for backward compatibility
+            salaryRange: data.salaryRange || null,
             salaryRangesByLevel: data.salaryRangesByLevel || undefined,
             totalJobCount: data.totalJobCount || undefined,
             jobCountsBySite: data.jobCountsBySite || undefined,
@@ -194,13 +219,23 @@ export class CareerMarketService {
             error: false
           };
 
+          this.rateLimitService.recordRequest();
+          const stats = this.rateLimitService.getUsageStats();
+          console.log(`✅ Generated market data using ${modelName}. Usage: ${stats.requestsToday}/${stats.dailyLimit} today`);
+
           this.cache[careerName] = marketData;
           observer.next(marketData);
           observer.complete();
         } catch (error: any) {
           this.tryGeminiModelsWithSDK(remainingModels, prompt, careerName, countryCode, observer);
         }
-      }).catch(() => {
+      }).catch((error: any) => {
+        if (error?.message?.includes('429') || error?.message?.includes('rate limit') || error?.message?.includes('quota')) {
+          console.warn(`⚠️ Rate limit hit on ${modelName}.`);
+          observer.error(new Error(`Rate limit exceeded. Market data not available for ${careerName}. Please try again later or ensure data is in Firestore.`));
+          observer.complete();
+          return;
+        }
         this.tryGeminiModelsWithSDK(remainingModels, prompt, careerName, countryCode, observer);
       });
     } catch (error: any) {
@@ -210,291 +245,34 @@ export class CareerMarketService {
 
   private buildMarketDataPrompt(careerName: string, countryCode?: string): string {
     const countryContext = countryCode ? ` in ${this.getCountryName(countryCode)}` : '';
-    const currentDate = new Date();
-    const oneYearAgo = new Date(currentDate.getFullYear() - 1, currentDate.getMonth(), 1);
-    const lastMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
+    const currency = countryCode ? this.getCurrencyForCountry(countryCode) : 'USD';
     
-    return `Provide comprehensive market information for the career "${careerName}"${countryContext}. 
+    return `Market data for "${careerName}"${countryContext}.
 
-Return a JSON object with this exact structure:
+JSON format:
 {
-  "jobOpenings": [
-    {
-      "source": "LinkedIn",
-      "title": "Job Title",
-      "company": "Company Name",
-      "location": "City, Country",
-      "url": "https://..."
-    }
-  ],
   "totalJobCount": 1250,
-  "jobCountsBySite": [
-    {"site": "LinkedIn", "count": 450},
-    {"site": "Indeed", "count": 380},
-    {"site": "Glassdoor", "count": 220},
-    {"site": "Monster", "count": 200}
-  ],
+  "jobCountsBySite": [{"site": "LinkedIn", "count": 450}, {"site": "Indeed", "count": 380}],
   "salaryRangesByLevel": {
-    "junior": {
-      "min": 40000,
-      "max": 60000,
-      "currency": "USD",
-      "period": "yearly"
-    },
-    "mid": {
-      "min": 65000,
-      "max": 90000,
-      "currency": "USD",
-      "period": "yearly"
-    },
-    "senior": {
-      "min": 95000,
-      "max": 140000,
-      "currency": "USD",
-      "period": "yearly"
-    }
+    "junior": {"min": 40000, "max": 60000, "currency": "${currency}", "period": "yearly"},
+    "mid": {"min": 65000, "max": 90000, "currency": "${currency}", "period": "yearly"},
+    "senior": {"min": 95000, "max": 140000, "currency": "${currency}", "period": "yearly"}
   },
   "marketTrend": "growing"
 }
 
-Requirements:
-1. Calculate totalJobCount: Total number of job postings from all major job sites (LinkedIn, Indeed, Glassdoor, Monster, etc.) for the last 12 months (from ${oneYearAgo.toLocaleDateString()} to ${lastMonth.toLocaleDateString()})
-2. Provide jobCountsBySite: Breakdown of job counts per major job site
-3. Provide salaryRangesByLevel: Salary ranges for three levels:
-   - junior: Entry-level positions (0-2 years experience)
-   - mid: Mid-level positions (3-7 years experience)
-   - senior: Senior positions (8+ years experience)
-4. Use realistic, current data based on 2024-2025 market conditions
-5. If country-specific, adjust salary to local currency and market rates
-6. Job counts should be realistic estimates based on typical job board volumes
-7. Market trend: "growing", "stable", "declining", or "unknown"
-
-Career: ${careerName}
-${countryCode ? `Country: ${this.getCountryName(countryCode)}` : ''}`;
+Provide realistic 2024-2025 data. Job counts from major sites (LinkedIn, Indeed, Glassdoor). Salary ranges: junior (0-2yrs), mid (3-7yrs), senior (8+yrs). Use ${currency}. Return JSON only.`;
   }
 
-
-  private async getDefaultMarketData(careerName: string, countryCode?: string): Promise<CareerMarketData> {
-    const aiGeneratedDefaults = await this.generateDefaultsWithAI(careerName, countryCode);
-    
-    return {
-      careerName,
-      jobOpenings: [
-        {
-          source: 'LinkedIn',
-          title: `Entry-level ${careerName} positions`,
-          location: 'Multiple locations',
-          url: `https://www.linkedin.com/jobs/search/?keywords=${encodeURIComponent(careerName)}`
-        },
-        {
-          source: 'Indeed',
-          title: `${careerName} jobs`,
-          location: 'Various',
-          url: `https://www.indeed.com/jobs?q=${encodeURIComponent(careerName)}`
-        }
-      ],
-      salaryRange: aiGeneratedDefaults.salaryRange, // Keep for backward compatibility
-      salaryRangesByLevel: aiGeneratedDefaults.salaryRangesByLevel,
-      totalJobCount: aiGeneratedDefaults.totalJobCount,
-      jobCountsBySite: aiGeneratedDefaults.jobCountsBySite,
-      marketTrend: aiGeneratedDefaults.marketTrend,
-      lastUpdated: new Date(),
-      loading: false,
-      error: false
+  private getCurrencyForCountry(countryCode: string): string {
+    const currencies: { [key: string]: string } = {
+      'KE': 'KES', 'NG': 'NGN', 'ZA': 'ZAR', 'ZW': 'USD', 
+      'ET': 'ETB', 'EG': 'EGP', 'GH': 'GHS'
     };
+    return currencies[countryCode] || 'USD';
   }
 
-  private async generateDefaultsWithAI(careerName: string, countryCode?: string): Promise<{ 
-    salaryRange: SalaryRange; 
-    salaryRangesByLevel?: SalaryRangeByLevel;
-    totalJobCount?: number;
-    jobCountsBySite?: JobCountBySite[];
-    marketTrend: 'growing' | 'stable' | 'declining' | 'unknown' 
-  }> {
-    if (!environment.geminiApiKey || !this.genAI) {
-      return this.getHardcodedDefaults(careerName);
-    }
 
-    const countryContext = countryCode ? ` in ${this.getCountryName(countryCode)}` : '';
-    const currentDate = new Date();
-    const oneYearAgo = new Date(currentDate.getFullYear() - 1, currentDate.getMonth(), 1);
-    const lastMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
-    
-    const prompt = `Provide comprehensive market data for "${careerName}"${countryContext}.
-
-Return ONLY a JSON object with this exact structure:
-{
-  "salaryRange": {
-    "min": 40000,
-    "max": 60000,
-    "currency": "USD",
-    "period": "yearly",
-    "source": "AI Generated"
-  },
-  "salaryRangesByLevel": {
-    "junior": {
-      "min": 40000,
-      "max": 60000,
-      "currency": "USD",
-      "period": "yearly"
-    },
-    "mid": {
-      "min": 65000,
-      "max": 90000,
-      "currency": "USD",
-      "period": "yearly"
-    },
-    "senior": {
-      "min": 95000,
-      "max": 140000,
-      "currency": "USD",
-      "period": "yearly"
-    }
-  },
-  "totalJobCount": 1250,
-  "jobCountsBySite": [
-    {"site": "LinkedIn", "count": 450},
-    {"site": "Indeed", "count": 380},
-    {"site": "Glassdoor", "count": 220},
-    {"site": "Monster", "count": 200}
-  ],
-  "marketTrend": "growing"
-}
-
-Requirements:
-1. Calculate totalJobCount: Total number of job postings from all major job sites for the last 12 months (from ${oneYearAgo.toLocaleDateString()} to ${lastMonth.toLocaleDateString()})
-2. Provide jobCountsBySite: Breakdown of job counts per major job site (LinkedIn, Indeed, Glassdoor, Monster, etc.)
-3. Provide salaryRangesByLevel: Salary ranges for three levels:
-   - junior: Entry-level (0-2 years experience)
-   - mid: Mid-level (3-7 years experience)
-   - senior: Senior (8+ years experience)
-4. Use realistic, current data based on 2024-2025 market conditions
-5. Use appropriate currency for the country (USD, KES, ZAR, NGN, etc.)
-6. Market trend: "growing", "stable", "declining", or "unknown"
-7. Job counts should be realistic estimates based on typical job board volumes
-
-Career: ${careerName}
-${countryCode ? `Country: ${this.getCountryName(countryCode)}` : ''}`;
-
-    try {
-      const model = this.genAI.getGenerativeModel({
-        model: 'gemini-1.5-flash',
-        generationConfig: {
-          temperature: 0.3,
-          topP: 0.95,
-          topK: 40
-        }
-      });
-
-      const response = await model.generateContent(prompt);
-      const responseText = response.response.text();
-      let jsonText = responseText.trim();
-      
-      if (jsonText.startsWith('```json')) {
-        jsonText = jsonText.replace(/^```json\s*/, '').replace(/\s*```$/, '');
-      } else if (jsonText.startsWith('```')) {
-        jsonText = jsonText.replace(/^```\s*/, '').replace(/\s*```$/, '');
-      }
-      
-      const data = JSON.parse(jsonText);
-      const hardcoded = this.getHardcodedDefaults(careerName);
-      
-      return {
-        salaryRange: data.salaryRange || hardcoded.salaryRange,
-        salaryRangesByLevel: data.salaryRangesByLevel || hardcoded.salaryRangesByLevel,
-        totalJobCount: data.totalJobCount || hardcoded.totalJobCount,
-        jobCountsBySite: data.jobCountsBySite || hardcoded.jobCountsBySite,
-        marketTrend: data.marketTrend || 'unknown'
-      };
-    } catch (error) {
-      console.warn('AI generation of defaults failed, using hardcoded fallback:', error);
-      return this.getHardcodedDefaults(careerName);
-    }
-  }
-
-  private getHardcodedDefaults(careerName: string): { 
-    salaryRange: SalaryRange; 
-    salaryRangesByLevel?: SalaryRangeByLevel;
-    totalJobCount?: number;
-    jobCountsBySite?: JobCountBySite[];
-    marketTrend: 'growing' | 'stable' | 'declining' | 'unknown' 
-  } {
-    const salaryRanges: { [key: string]: { min: number; max: number } } = {
-      'Doctor': { min: 180000, max: 250000 },
-      'Nurse': { min: 55000, max: 75000 },
-      'Dentist': { min: 120000, max: 180000 },
-      'Pharmacist': { min: 100000, max: 130000 },
-      'Engineer': { min: 65000, max: 90000 },
-      'Software Engineer': { min: 70000, max: 100000 },
-      'Lawyer': { min: 60000, max: 85000 },
-      'Teacher': { min: 40000, max: 55000 },
-      'Accountant': { min: 50000, max: 70000 },
-      'Business Manager': { min: 55000, max: 80000 },
-      'IT Specialist': { min: 60000, max: 85000 },
-      'Data Scientist': { min: 80000, max: 120000 },
-      'Scientist': { min: 60000, max: 85000 },
-      'Architect': { min: 55000, max: 75000 },
-      'Journalist': { min: 35000, max: 50000 },
-      'Social Worker': { min: 40000, max: 55000 },
-      'Psychologist': { min: 50000, max: 70000 }
-    };
-
-    const range = salaryRanges[careerName] || { min: 40000, max: 60000 };
-    
-    // Calculate salary ranges by level (junior, mid, senior)
-    const juniorMin = range.min;
-    const juniorMax = range.min + (range.max - range.min) * 0.4;
-    const midMin = range.min + (range.max - range.min) * 0.4;
-    const midMax = range.min + (range.max - range.min) * 0.75;
-    const seniorMin = range.min + (range.max - range.min) * 0.75;
-    const seniorMax = range.max * 1.5; // Senior can go higher
-    
-    // Estimate job counts (realistic estimates based on career name hash)
-    const careerHash = careerName.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-    const baseJobCount = 500 + (careerHash % 1500);
-    const linkedInCount = Math.floor(baseJobCount * 0.35);
-    const indeedCount = Math.floor(baseJobCount * 0.30);
-    const glassdoorCount = Math.floor(baseJobCount * 0.20);
-    const monsterCount = Math.floor(baseJobCount * 0.15);
-    
-    return {
-      salaryRange: {
-        min: range.min,
-        max: range.max,
-        currency: 'USD',
-        period: 'yearly',
-        source: 'Hardcoded Fallback'
-      },
-      salaryRangesByLevel: {
-        junior: {
-          min: Math.round(juniorMin),
-          max: Math.round(juniorMax),
-          currency: 'USD',
-          period: 'yearly'
-        },
-        mid: {
-          min: Math.round(midMin),
-          max: Math.round(midMax),
-          currency: 'USD',
-          period: 'yearly'
-        },
-        senior: {
-          min: Math.round(seniorMin),
-          max: Math.round(seniorMax),
-          currency: 'USD',
-          period: 'yearly'
-        }
-      },
-      totalJobCount: baseJobCount,
-      jobCountsBySite: [
-        { site: 'LinkedIn', count: linkedInCount },
-        { site: 'Indeed', count: indeedCount },
-        { site: 'Glassdoor', count: glassdoorCount },
-        { site: 'Monster', count: monsterCount }
-      ],
-      marketTrend: 'stable'
-    };
-  }
 
   private isCacheValid(data: CareerMarketData): boolean {
     const now = new Date().getTime();
@@ -537,10 +315,8 @@ ${countryCode ? `Country: ${this.getCountryName(countryCode)}` : ''}`;
       catchError(error => {
         console.error('Error fetching market data from Firebase Functions:', error);
         return new Observable<CareerMarketData>(observer => {
-          this.getDefaultMarketData(careerName, countryCode).then(data => {
-            observer.next(data);
+          observer.error(new Error(`Failed to fetch market data for ${careerName}. Please ensure data is in Firestore.`));
             observer.complete();
-          });
         });
       })
     );

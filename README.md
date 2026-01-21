@@ -156,19 +156,38 @@ src/app/
 
 ### Gemini AI Setup (Optional)
 
-1. Get a Gemini API key from [Google AI Studio](https://makersuite.google.com/app/apikey)
-2. Add it to `src/environments/environment.ts`:
-   ```typescript
-   geminiApiKey: 'your-api-key-here'
+**⚠️ IMPORTANT: Never commit API keys to git!**
+
+1. Get a new Gemini API key from [Google AI Studio](https://aistudio.google.com/app/apikey)
+   - If your previous key was leaked, create a new one and delete the old one
+2. Create a `.env` file in the project root:
+   ```bash
+   GEMINI_API_KEY=your-new-api-key-here
    ```
-3. The app will gracefully fall back to default resources if the API key is not configured
+3. Load the environment variables:
+   ```bash
+   node scripts/load-env.js
+   ```
+4. The app will gracefully fall back to default resources if the API key is not configured
+5. **Never commit `.env` to git** - it's already in `.gitignore`
 
 ## 📦 Available Scripts
 
+### Development
 - `npm start` - Start development server
 - `npm run build` - Build for production
 - `npm run watch` - Build and watch for changes
 - `npm test` - Run unit tests
+
+### Data Population (Node.js Scripts)
+- `node scripts/populate-all-careers-firestore.js` - Populate careers to Firestore
+- `node scripts/verify-career-requirements.js [career] [country]` - Verify career requirements from official sources
+- `node scripts/verify-career-requirements.js --list-all` - List all careers with verification status
+- `node scripts/populate-study-resources-firestore.js` - Populate study resources to Firestore
+- `node scripts/populate-market-data-firestore-ai.js` - **Generate and populate market data using AI**
+- `node scripts/update-market-data-monthly.js` - **Update all market data monthly (for cron jobs)**
+
+See `MARKET_DATA_AI_SETUP.md` for detailed instructions on using AI to generate market data.
 
 ## 🛠️ Technologies Used
 
@@ -208,6 +227,48 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 ## 📄 License
 
 MIT
+
+## 📋 Career Requirements Verification
+
+**⚠️ Important**: The career admission requirements in this codebase are currently **ESTIMATED** and need to be verified against official government and university sources.
+
+### Verification System
+
+We've created a comprehensive verification system to ensure accuracy:
+
+1. **Documentation**: `CAREER_REQUIREMENTS_SOURCES.md` - Lists official sources for each country
+2. **Verification Script**: `scripts/verify-career-requirements.js` - Interactive tool to verify and update requirements
+3. **Quick Guide**: `VERIFY_CAREER_REQUIREMENTS_GUIDE.md` - Step-by-step verification guide
+
+### Quick Start
+
+```bash
+# List all careers and their verification status
+node scripts/verify-career-requirements.js --list-all
+
+# Verify a specific career for a country
+node scripts/verify-career-requirements.js Doctor ZA
+```
+
+### Official Sources
+
+For South Africa, verify requirements from:
+- Department of Higher Education and Training (DHET)
+- Universities South Africa (USAf)
+- Individual university websites (UCT, Wits, UP, etc.)
+- Higher Education Act (Government Gazette No. 751)
+
+### Qualification Levels (South Africa)
+
+South Africa has 4 qualification levels with different requirements:
+- **Degree** (NQF 7): Bachelor's Degree programs
+- **BTech** (NQF 7): Bachelor of Technology programs
+- **Diploma** (NQF 6): Diploma programs
+- **Certificate** (NQF 5): Higher Certificate programs
+
+See `SOUTH_AFRICA_QUALIFICATION_LEVELS.md` for detailed government requirements and `VERIFY_ZA_REQUIREMENTS_GUIDE.md` for verification guide.
+
+See `CAREER_REQUIREMENTS_SOURCES.md` for complete list of official sources by country.
 
 ## 🆘 Support
 

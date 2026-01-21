@@ -16,6 +16,7 @@ Chart.register(...registerables);
 export class ImprovementDisplayComponent implements OnChanges, AfterViewInit, OnDestroy {
   @Input() grades: Grades | null = null;
   @Input() career: Career | null = null;
+  @Input() selectedCountry: { code: string } | null = null;
   @ViewChild('improvementChart', { static: false }) chartCanvas!: ElementRef<HTMLCanvasElement>;
 
   improvements: { [subject: string]: number } = {};
@@ -30,10 +31,10 @@ export class ImprovementDisplayComponent implements OnChanges, AfterViewInit, On
   ) {}
 
   ngAfterViewInit() {
-    // Wait a tick to ensure view is fully initialized
     setTimeout(() => {
       if (this.grades && this.career) {
-        this.improvements = this.improvementService.calculateImprovements(this.grades, this.career);
+        const countryCode = this.selectedCountry?.code || 'ZA';
+        this.improvements = this.improvementService.calculateImprovements(this.grades, this.career, countryCode);
       }
       this.updateOrCreateChart();
     }, 0);
@@ -41,11 +42,10 @@ export class ImprovementDisplayComponent implements OnChanges, AfterViewInit, On
 
   ngOnChanges(changes: SimpleChanges) {
     if (this.grades && this.career) {
-      this.improvements = this.improvementService.calculateImprovements(this.grades, this.career);
+      const countryCode = this.selectedCountry?.code || 'ZA';
+      this.improvements = this.improvementService.calculateImprovements(this.grades, this.career, countryCode);
       this.loadAITips();
       
-      // Wait for view to be ready before creating/updating chart
-      // Use requestAnimationFrame to ensure DOM is ready
       requestAnimationFrame(() => {
         setTimeout(() => {
           this.updateOrCreateChart();
@@ -60,7 +60,6 @@ export class ImprovementDisplayComponent implements OnChanges, AfterViewInit, On
 
   private updateOrCreateChart() {
     if (!this.chartCanvas) {
-      // If canvas not ready yet, try again after a short delay
       setTimeout(() => {
         this.updateOrCreateChart();
       }, 50);
@@ -97,8 +96,31 @@ export class ImprovementDisplayComponent implements OnChanges, AfterViewInit, On
 
     Object.keys(this.improvements).forEach(subject => {
       this.loadingTips[subject] = true;
-      const currentGrade = this.grades![subject] || 0;
-      const requiredGrade = this.career!.minGrades[subject];
+      const countryCode = this.selectedCountry?.code || 'ZA';
+      let currentGrade = 0;
+      let requiredGrade = 0;
+      
+      if (subject.includes(' OR ')) {
+        if (subject.includes('Mathematics') || subject.includes('Mathematical Literacy')) {
+          const mathGrade = this.grades!['Math'] || this.grades!['MathLiteracy'] || 0;
+          const mathLitGrade = this.grades!['MathLiteracy'] || this.grades!['Math'] || 0;
+          currentGrade = Math.max(mathGrade, mathLitGrade);
+          const mathReq = this.career!.minGrades['Math'] || 0;
+          const mathLitReq = this.career!.minGrades['MathLiteracy'] || 0;
+          requiredGrade = Math.min(mathReq, mathLitReq);
+        } else if (subject.includes('English')) {
+          const engGrade = this.grades!['English'] || this.grades!['EnglishFAL'] || 0;
+          const engFALGrade = this.grades!['EnglishFAL'] || this.grades!['English'] || 0;
+          currentGrade = Math.max(engGrade, engFALGrade);
+          const engReq = this.career!.minGrades['English'] || 0;
+          const engFALReq = this.career!.minGrades['EnglishFAL'] || 0;
+          requiredGrade = Math.min(engReq, engFALReq);
+        }
+      } else {
+        currentGrade = this.grades![subject] || 0;
+        requiredGrade = this.career!.minGrades[subject] || 0;
+      }
+      
       const improvementNeeded = this.improvements[subject];
 
       this.aiTipsService.generateTip(
@@ -175,8 +197,32 @@ export class ImprovementDisplayComponent implements OnChanges, AfterViewInit, On
               if (!chartData.labels) return '';
               const subject = chartData.labels[context.dataIndex] as string;
               const improvement = this.improvements[subject];
-              const current = this.grades![subject] || 0;
-              const required = this.career!.minGrades[subject];
+              
+              // Handle either/or subjects
+              let current = 0;
+              let required = 0;
+              
+              if (subject.includes(' OR ')) {
+                if (subject.includes('Mathematics') || subject.includes('Mathematical Literacy')) {
+                  const mathGrade = this.grades!['Math'] || this.grades!['MathLiteracy'] || 0;
+                  const mathLitGrade = this.grades!['MathLiteracy'] || this.grades!['Math'] || 0;
+                  current = Math.max(mathGrade, mathLitGrade);
+                  const mathReq = this.career!.minGrades['Math'] || 0;
+                  const mathLitReq = this.career!.minGrades['MathLiteracy'] || 0;
+                  required = Math.min(mathReq, mathLitReq);
+                } else if (subject.includes('English')) {
+                  const engGrade = this.grades!['English'] || this.grades!['EnglishFAL'] || 0;
+                  const engFALGrade = this.grades!['EnglishFAL'] || this.grades!['English'] || 0;
+                  current = Math.max(engGrade, engFALGrade);
+                  const engReq = this.career!.minGrades['English'] || 0;
+                  const engFALReq = this.career!.minGrades['EnglishFAL'] || 0;
+                  required = Math.min(engReq, engFALReq);
+                }
+              } else {
+                current = this.grades![subject] || 0;
+                required = this.career!.minGrades[subject] || 0;
+              }
+              
               return [
                 `Current: ${current}%`,
                 `Required: ${required}%`,

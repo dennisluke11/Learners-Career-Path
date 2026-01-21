@@ -17,9 +17,11 @@ export class CountrySelectorComponent implements OnInit, OnChanges {
 
   async ngOnInit() {
     this.countries = await this.countriesService.getCountries();
-    // Set default to first country if none selected
+    // Set default to South Africa (ZA) if none selected, otherwise use first country
     if (!this.selectedCountry && this.countries.length > 0) {
-      const defaultCountry = this.countries[0];
+      // Try to find South Africa first
+      const southAfrica = this.countries.find(c => c.code === 'ZA');
+      const defaultCountry = southAfrica || this.countries[0];
       this.selectedCountry = defaultCountry;
       this.countryChange.emit(defaultCountry);
     }

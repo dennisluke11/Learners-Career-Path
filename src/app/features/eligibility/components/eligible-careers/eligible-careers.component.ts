@@ -57,12 +57,43 @@ export class EligibleCareersComponent implements OnChanges {
         careers = await this.careersService.getCareers();
       }
 
-      // Get eligible careers
-      this.eligibleCareers = this.eligibilityService.getEligibleCareers(this.grades, careers);
+      // Debug logging
+      console.log('[EligibleCareers] Checking eligibility with:', {
+        grades: this.grades,
+        careersCount: careers.length,
+        country: this.selectedCountry?.code,
+        sampleCareer: careers.find(c => c.name === 'IT Specialist')
+      });
+
+      // Get eligible careers with country code for subject name normalization
+      this.eligibleCareers = this.eligibilityService.getEligibleCareers(
+        this.grades, 
+        careers,
+        this.selectedCountry?.code
+      );
       
       // Separate into qualified and close
       this.qualifiedCareers = this.eligibleCareers.filter(ec => ec.status === 'qualified');
       this.closeCareers = this.eligibleCareers.filter(ec => ec.status === 'close');
+
+      // Debug logging
+      console.log('[EligibleCareers] Results:', {
+        total: this.eligibleCareers.length,
+        qualified: this.qualifiedCareers.length,
+        close: this.closeCareers.length,
+        qualifiedNames: this.qualifiedCareers.map(ec => ec.career.name),
+        itCareers: this.eligibleCareers.filter(ec => 
+          ec.career.name.includes('IT') || 
+          ec.career.name.includes('Computer') || 
+          ec.career.name.includes('Software') ||
+          ec.career.name.includes('Cybersecurity') ||
+          ec.career.name.includes('Network')
+        ).map(ec => ({
+          name: ec.career.name,
+          status: ec.status,
+          matchScore: ec.matchScore
+        }))
+      });
       
       // Group close careers by curriculum category
       this.groupCloseCareersByCategory();

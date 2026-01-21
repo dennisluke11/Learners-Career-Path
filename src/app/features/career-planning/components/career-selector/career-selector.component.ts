@@ -16,7 +16,22 @@ export class CareerSelectorComponent implements OnChanges {
   careers: Career[] = [];
   loading = false;
   error: string | null = null;
-  Object = Object;
+  displayRequirements: { [subject: string]: number } = {};
+
+  getObjectKeys = Object.keys;
+  displayQualificationLevels: Array<{
+    level: string;
+    nqfLevel?: number;
+    minGrades: { [subject: string]: number };
+    aps?: number;
+    notes?: string;
+    sources?: {
+      url?: string;
+      institution?: string;
+      verifiedDate?: string;
+      notes?: string;
+    };
+  }> = [];
 
   constructor(private careersService: CareersService) {
     this.loadCareers();
@@ -46,8 +61,7 @@ export class CareerSelectorComponent implements OnChanges {
       if (this.careers.length === 0) {
         this.error = 'No careers found. Please check your database connection.';
       }
-    } catch (error: any) {
-      console.error('Error loading careers:', error);
+    } catch (error) {
       this.error = 'Failed to load careers. Please try again.';
       this.careers = [];
     } finally {
@@ -55,13 +69,89 @@ export class CareerSelectorComponent implements OnChanges {
     }
   }
 
-  onSelectCareer(event: Event) {
+  async onSelectCareer(event: Event) {
     const target = event.target as HTMLSelectElement;
     const careerName = target.value;
-    const career = this.careers.find(c => c.name === careerName);
-    if (career) {
-      this.careerChange.emit(career);
+    
+    if (!careerName) {
+      this.careerChange.emit(null as any);
+      return;
     }
+    
+    try {
+      let career: Career | null = null;
+      
+      if (this.selectedCountry) {
+        career = await this.careersService.getCareerForCountry(careerName, this.selectedCountry.code);
+      } else {
+        career = this.careers.find(c => c.name === careerName) || null;
+      }
+      
+      if (career) {
+        if (!career.minGrades || Object.keys(career.minGrades).length === 0) {
+          if (career.qualificationLevels && this.selectedCountry) {
+            const qualLevels = career.qualificationLevels[this.selectedCountry.code];
+            if (qualLevels && qualLevels.length > 0) {
+              career.minGrades = qualLevels[0].minGrades || {};
+            }
+          }
+        }
+        
+        this.displayRequirements = this.processRequirementsForDisplay(career.minGrades || {});
+        
+        if (career.qualificationLevels && this.selectedCountry) {
+          const qualLevels = career.qualificationLevels[this.selectedCountry.code] || [];
+          this.displayQualificationLevels = qualLevels.map(level => ({
+            ...level,
+            minGrades: this.processRequirementsForDisplay(level.minGrades || {})
+          }));
+        } else {
+          this.displayQualificationLevels = [];
+        }
+        
+        this.careerChange.emit(career);
+      }
+    } catch (error) {
+      const career = this.careers.find(c => c.name === careerName);
+      if (career) {
+        this.careerChange.emit(career);
+      }
+    }
+  }
+
+  private processRequirementsForDisplay(requirements: { [subject: string]: number }): { [subject: string]: number } {
+    if (!this.selectedCountry || this.selectedCountry.code !== 'ZA') {
+      return requirements;
+    }
+
+    const processed: { [subject: string]: number } = {};
+
+    if (requirements['Math'] !== undefined && requirements['MathLiteracy'] !== undefined) {
+      const minRequired = Math.min(requirements['Math'], requirements['MathLiteracy']);
+      processed['Mathematics OR Mathematical Literacy'] = minRequired;
+    } else if (requirements['Math'] !== undefined) {
+      processed['Mathematics'] = requirements['Math'];
+    } else if (requirements['MathLiteracy'] !== undefined) {
+      processed['Mathematical Literacy'] = requirements['MathLiteracy'];
+    }
+
+    if (requirements['English'] !== undefined && requirements['EnglishFAL'] !== undefined) {
+      const minRequired = Math.min(requirements['English'], requirements['EnglishFAL']);
+      processed['English (Home Language) OR English (First Additional Language)'] = minRequired;
+    } else if (requirements['English'] !== undefined) {
+      processed['English (Home Language)'] = requirements['English'];
+    } else if (requirements['EnglishFAL'] !== undefined) {
+      processed['English (First Additional Language)'] = requirements['EnglishFAL'];
+    }
+
+    for (const subject in requirements) {
+      if (subject !== 'Math' && subject !== 'MathLiteracy' && 
+          subject !== 'English' && subject !== 'EnglishFAL') {
+        processed[subject] = requirements[subject];
+      }
+    }
+
+    return processed;
   }
 }
 

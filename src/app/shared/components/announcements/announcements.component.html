@@ -1,12 +1,18 @@
-<div class="announcements-container" *ngIf="announcements().length > 0">
-  <div class="announcements-header">
-    <h3>📢 Announcements</h3>
-    <span class="announcements-count">{{ announcements().length }}</span>
-  </div>
-
+<div class="announcements-container">
   <!-- Loading State -->
   <div *ngIf="isLoading()" class="loading-state">
     <p>Loading announcements...</p>
+  </div>
+
+  <!-- No Announcements State -->
+  <div *ngIf="!isLoading() && announcements().length === 0" class="no-announcements">
+    <p>No announcements at this time.</p>
+  </div>
+
+  <!-- Announcements Header -->
+  <div *ngIf="!isLoading() && announcements().length > 0" class="announcements-header">
+    <h3>📢 Announcements</h3>
+    <span class="announcements-count">{{ announcements().length }}</span>
   </div>
 
   <!-- Announcements List -->
@@ -69,6 +75,7 @@
     </div>
   </div>
 </div>
+
 
 
 

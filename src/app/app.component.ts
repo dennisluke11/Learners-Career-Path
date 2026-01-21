@@ -48,7 +48,8 @@ export class AppComponent {
       return;
     }
 
-    const improvements = this.improvementService.calculateImprovements(grades, career);
+    const countryCode = this.selectedCountry()?.code || 'ZA';
+    const improvements = this.improvementService.calculateImprovements(grades, career, countryCode);
     this.subjectsNeedingImprovement.set(Object.keys(improvements));
   }
 

@@ -35,11 +35,44 @@
     </div>
     <div class="requirements">
       <h4>Minimum Requirements:</h4>
-      <ul>
-        <li *ngFor="let subject of Object.keys(selectedCareer.minGrades)">
-          {{subject}}: {{selectedCareer.minGrades[subject]}}%
+      <div *ngIf="!selectedCareer.minGrades || getObjectKeys(selectedCareer.minGrades).length === 0" class="no-requirements">
+        <p>No specific requirements available for this career.</p>
+        <p class="info-text">Please check with the institution for admission requirements.</p>
+      </div>
+      <ul *ngIf="displayRequirements && getObjectKeys(displayRequirements).length > 0">
+        <li *ngFor="let subject of getObjectKeys(displayRequirements)">
+          <span class="subject-name">{{subject}}:</span>
+          <span class="grade-required">{{displayRequirements[subject]}}%</span>
+          <span *ngIf="subject.includes(' OR ')" class="either-or-note">(Either one required)</span>
         </li>
       </ul>
+      
+      <!-- Show note for either/or subjects -->
+      <div *ngIf="selectedCountry?.code === 'ZA' && (selectedCareer.minGrades?.['Math'] !== undefined || selectedCareer.minGrades?.['MathLiteracy'] !== undefined || selectedCareer.minGrades?.['English'] !== undefined || selectedCareer.minGrades?.['EnglishFAL'] !== undefined)" class="either-or-info">
+        <p class="info-note">
+          <strong>Note:</strong> For South Africa, you only need to meet the requirement for <strong>one</strong> of the subjects in each "OR" pair (e.g., Mathematics OR Mathematical Literacy).
+        </p>
+      </div>
+      
+      <!-- Show qualification levels if available -->
+      <div *ngIf="displayQualificationLevels && displayQualificationLevels.length > 0" class="qualification-levels">
+        <h5>Qualification Levels:</h5>
+        <div *ngFor="let level of displayQualificationLevels" class="qual-level">
+          <h6>{{level.level}} (NQF {{level.nqfLevel}})</h6>
+          <ul *ngIf="level.minGrades && getObjectKeys(level.minGrades).length > 0">
+            <li *ngFor="let subject of getObjectKeys(level.minGrades)">
+              <span class="subject-name">{{subject}}:</span>
+              <span class="grade-required">{{level.minGrades[subject]}}%</span>
+              <span *ngIf="subject.includes(' OR ')" class="either-or-note">(Either one required)</span>
+            </li>
+          </ul>
+          <div *ngIf="level.aps" class="aps-requirement">
+            <span class="aps-label">Admission Point Score (APS):</span>
+            <span class="aps-value">{{level.aps}}</span>
+          </div>
+          <p *ngIf="level.notes" class="level-notes">{{level.notes}}</p>
+        </div>
+      </div>
     </div>
   </div>
 </div>

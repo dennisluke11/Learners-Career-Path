@@ -46,6 +46,18 @@ service cloud.firestore {
       allow update, delete: if false;
     }
     
+    // Market data collection - public read
+    match /marketData/{document=**} {
+      allow read: if true;
+      allow write: if false; // Only admins can write (configure separately)
+    }
+    
+    // Study resources collection - public read
+    match /studyResources/{document=**} {
+      allow read: if true;
+      allow write: if false; // Only admins can write (configure separately)
+    }
+    
     // Default: deny all other access
     match /{document=**} {
       allow read, write: if false;

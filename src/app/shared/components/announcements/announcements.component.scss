@@ -36,6 +36,13 @@
     color: var(--text-medium);
   }
 
+  .no-announcements {
+    padding: 2rem;
+    text-align: center;
+    color: var(--text-medium);
+    font-style: italic;
+  }
+
   .announcements-list {
     display: flex;
     flex-direction: column;
@@ -245,6 +252,7 @@
     }
   }
 }
+
 
 
 

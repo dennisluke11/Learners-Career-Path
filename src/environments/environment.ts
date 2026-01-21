@@ -1,7 +1,7 @@
 export const environment = {
   production: false,
   openaiApiKey: '',
-  geminiApiKey: 'AIzaSyAnDnk21A8Vu6v2e8oQ0hjTH0M8VXoJzH4',
+  geminiApiKey: '', // Set via .env file or environment variable (see README.md)
   useFirebaseFunctions: false,
   firebaseFunctionsUrl: '',
   firebaseConfig: {

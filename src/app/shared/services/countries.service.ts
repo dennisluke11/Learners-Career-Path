@@ -8,23 +8,15 @@ export class CountriesService {
 
   constructor(private firebaseService: FirebaseService) {}
 
-  /**
-   * Get countries dynamically from Firebase
-   * Any country with active: true will be shown
-   * Falls back to defaults if Firebase unavailable
-   */
   async getCountries(): Promise<Country[]> {
-    // Return cached data if available
     if (this.countriesCache) {
       return this.countriesCache;
     }
 
-    // Try to fetch from Firebase first (dynamic - any active country will show)
     if (this.firebaseService.isAvailable()) {
       try {
         const firebaseCountries = await this.firebaseService.getCollection('countries');
         if (firebaseCountries && firebaseCountries.length > 0) {
-          // Filter only active countries (dynamic - no hardcoded list)
           this.countriesCache = firebaseCountries
             .filter(c => c.active === true)
             .map(c => ({
@@ -34,8 +26,12 @@ export class CountriesService {
               active: true
             })) as Country[];
           
-          // Sort alphabetically by name for consistent display
-          this.countriesCache.sort((a, b) => a.name.localeCompare(b.name));
+          // Sort countries, but put South Africa (ZA) first
+          this.countriesCache.sort((a, b) => {
+            if (a.code === 'ZA') return -1;
+            if (b.code === 'ZA') return 1;
+            return a.name.localeCompare(b.name);
+          });
           
           console.log(`✅ Loaded ${this.countriesCache.length} active countries from Firebase`);
           return this.countriesCache;
@@ -45,22 +41,21 @@ export class CountriesService {
       }
     }
 
-    // Fallback to default countries (only active ones)
     this.countriesCache = DEFAULT_COUNTRIES.filter(c => c.active === true);
+    // Sort countries, but put South Africa (ZA) first
+    this.countriesCache.sort((a, b) => {
+      if (a.code === 'ZA') return -1;
+      if (b.code === 'ZA') return 1;
+      return a.name.localeCompare(b.name);
+    });
     console.log(`📋 Using ${this.countriesCache.length} default countries as fallback`);
     return this.countriesCache;
   }
 
-  /**
-   * Get countries synchronously (for backwards compatibility)
-   */
   getCountriesSync(): Country[] {
     return this.countriesCache || DEFAULT_COUNTRIES.filter(c => c.active === true);
   }
 
-  /**
-   * Clear cache to force refresh from Firebase
-   */
   clearCache() {
     this.countriesCache = null;
   }

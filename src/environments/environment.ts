@@ -2,8 +2,7 @@ export const environment = {
   production: false,
   openaiApiKey: '',
   geminiApiKey: '', // Set via .env file or environment variable (see README.md)
-  useFirebaseFunctions: false,
-  firebaseFunctionsUrl: '',
+  useFirebaseFunctions: false, // Set to true to use Firebase Functions (recommended for production)
   firebaseConfig: {
     apiKey: 'AIzaSyBh_luw17BOgqmndHRmLpZrDYnV0p0bV0I',
     authDomain: 'learner-s-career-path.firebaseapp.com',

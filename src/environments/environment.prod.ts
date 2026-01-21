@@ -1,7 +1,8 @@
 export const environment = {
   production: true,
-  openaiApiKey: '', // Set this via your production environment variables
-  geminiApiKey: '', // Set this via your production environment variables (get from https://aistudio.google.com/)
+  openaiApiKey: '', // Not used - OpenAI API not implemented
+  geminiApiKey: '', // Not used in production - API calls go through Firebase Functions
+  useFirebaseFunctions: true, // Use Firebase Functions for secure API key handling
   firebaseConfig: {
     apiKey: 'AIzaSyBh_luw17BOgqmndHRmLpZrDYnV0p0bV0I',
     authDomain: 'learner-s-career-path.firebaseapp.com',

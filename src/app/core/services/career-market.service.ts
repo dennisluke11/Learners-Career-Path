@@ -299,8 +299,7 @@ Provide realistic 2024-2025 data. Job counts from major sites (LinkedIn, Indeed,
   }
 
   private getMarketDataViaFunctions(careerName: string, countryCode?: string): Observable<CareerMarketData> {
-    const functionsUrl = environment.firebaseFunctionsUrl || 
-      `https://us-central1-${environment.firebaseConfig.projectId}.cloudfunctions.net/getCareerMarketData`;
+    const functionsUrl = `https://us-central1-${environment.firebaseConfig.projectId}.cloudfunctions.net/getCareerMarketData`;
     
     const body = {
       careerName,

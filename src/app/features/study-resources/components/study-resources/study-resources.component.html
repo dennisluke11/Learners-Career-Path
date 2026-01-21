@@ -1,0 +1,23 @@
+<div *ngIf="selectedCareer && subjectsNeedingImprovement.length > 0 && selectedCountry && selectedGradeLevel" class="study-resources-container">
+  <div class="career-context">
+    <p class="career-info">
+      <strong>Focus on:</strong> {{selectedCareer.name}} - Improving {{subjectsNeedingImprovement.length}} subject(s) 
+      <span class="context-details">({{selectedCountry.name}}, {{selectedGradeLevel.displayName}})</span>
+    </p>
+  </div>
+
+  <!-- Loading State -->
+  <div *ngIf="hasAnyLoading()" class="loading-state">
+    <p>Generating study materials...</p>
+  </div>
+
+  <!-- Study Materials URLs (Limited to 4) -->
+  <ul class="materials-list" *ngIf="hasAnyResources()">
+    <li *ngFor="let url of getAllUrls()" class="material-item">
+      <a [href]="url" target="_blank" rel="noopener noreferrer" class="material-link">
+        {{url}}
+      </a>
+    </li>
+  </ul>
+</div>
+

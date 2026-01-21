@@ -1,0 +1,29 @@
+<div class="grade-input-container">
+  <h2>Enter Your Current Grades</h2>
+  <div *ngIf="selectedCountry" class="country-note">
+    <span>{{selectedCountry.flag}}</span>
+    <span>Subjects for {{selectedCountry.name}} curriculum</span>
+  </div>
+  <form [formGroup]="gradeForm" class="grade-form">
+    <div class="form-grid">
+      <div *ngFor="let mapping of subjectMappings" class="form-group" [class.required]="mapping.required">
+        <label [for]="mapping.standardName">
+          {{mapping.displayName}}<span *ngIf="mapping.required" class="required-star">*</span>:
+        </label>
+        <input 
+          type="number" 
+          [id]="mapping.standardName"
+          [formControlName]="mapping.standardName" 
+          (input)="onGradesChange()"
+          min="0"
+          max="100"
+          [placeholder]="'Enter grade (0-100)' + (mapping.required ? ' - Required' : '')"
+        />
+        <span *ngIf="gradeForm.get(mapping.standardName)?.invalid && gradeForm.get(mapping.standardName)?.touched" class="error-message">
+          Please enter a valid grade (0-100)
+        </span>
+      </div>
+    </div>
+  </form>
+</div>
+

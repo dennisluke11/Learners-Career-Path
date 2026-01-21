@@ -1,0 +1,74 @@
+<div class="announcements-container" *ngIf="announcements().length > 0">
+  <div class="announcements-header">
+    <h3>📢 Announcements</h3>
+    <span class="announcements-count">{{ announcements().length }}</span>
+  </div>
+
+  <!-- Loading State -->
+  <div *ngIf="isLoading()" class="loading-state">
+    <p>Loading announcements...</p>
+  </div>
+
+  <!-- Announcements List -->
+  <div *ngIf="!isLoading()" class="announcements-list">
+    <div 
+      *ngFor="let announcement of announcements()" 
+      class="announcement-card"
+      [class.paid]="announcement.isPaid"
+      [class.expanded]="isExpanded(announcement.id || '')">
+      
+      <!-- Announcement Header -->
+      <div class="announcement-header" (click)="toggleExpand(announcement.id || '')">
+        <div class="announcement-type">
+          <span class="type-icon">{{ getTypeIcon(announcement.type) }}</span>
+          <span class="type-label">{{ getTypeLabel(announcement.type) }}</span>
+          <span *ngIf="announcement.isPaid" class="paid-badge">Sponsored</span>
+        </div>
+        <span class="expand-icon">{{ isExpanded(announcement.id || '') ? '▼' : '▶' }}</span>
+      </div>
+
+      <!-- Announcement Content -->
+      <div *ngIf="isExpanded(announcement.id || '')" class="announcement-content">
+        <!-- Company Info -->
+        <div *ngIf="announcement.company" class="company-info">
+          <img 
+            *ngIf="announcement.company.logo" 
+            [src]="announcement.company.logo" 
+            [alt]="announcement.company.name"
+            class="company-logo">
+          <div class="company-details">
+            <h4>{{ announcement.company.name }}</h4>
+            <p *ngIf="announcement.company.website" class="company-website">{{ announcement.company.website }}</p>
+          </div>
+        </div>
+
+        <!-- Banner Image -->
+        <img 
+          *ngIf="announcement.image" 
+          [src]="announcement.image" 
+          [alt]="announcement.title"
+          class="announcement-banner">
+
+        <!-- Title -->
+        <h4 class="announcement-title">{{ announcement.title }}</h4>
+
+        <!-- Content -->
+        <div class="announcement-text" [innerHTML]="announcement.content"></div>
+
+        <!-- Action Button -->
+        <div *ngIf="announcement.actionButton" class="announcement-actions">
+          <button 
+            (click)="onActionClick(announcement)"
+            class="action-button"
+            [class.primary]="announcement.isPaid">
+            {{ announcement.actionButton.text || 'For More Details' }}
+            <span class="external-icon" *ngIf="announcement.actionButton.type === 'external'">↗</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+

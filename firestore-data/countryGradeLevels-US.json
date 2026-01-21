@@ -1,0 +1,30 @@
+{
+  "system": "Grade",
+  "levels": [
+    {
+      "level": 9,
+      "displayName": "Grade 9",
+      "info": "Freshman"
+    },
+    {
+      "level": 10,
+      "displayName": "Grade 10",
+      "info": "Sophomore"
+    },
+    {
+      "level": 11,
+      "displayName": "Grade 11",
+      "info": "Junior"
+    },
+    {
+      "level": 12,
+      "displayName": "Grade 12",
+      "info": "Senior"
+    }
+  ],
+  "maxLevel": 12
+}
+
+
+
+

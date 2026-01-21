@@ -1,0 +1,99 @@
+<div *ngIf="career && grades" class="progress-charts-container">
+  <h2>📊 Your Progress Overview</h2>
+  
+  <!-- Overall Progress Card -->
+  <div class="overall-progress-card">
+    <div class="overall-progress-header">
+      <h3>Overall Progress</h3>
+      <span class="overall-percentage">{{overallProgress.toFixed(0)}}%</span>
+    </div>
+    <div class="overall-progress-bar">
+      <div 
+        class="overall-progress-fill" 
+        [style.width.%]="overallProgress"
+        [style.background]="overallProgress >= 100 ? '#27ae60' : overallProgress >= 80 ? '#f39c12' : '#e74c3c'">
+      </div>
+    </div>
+    <p class="overall-progress-text">
+      <span *ngIf="overallProgress >= 100">🎉 Excellent! You meet all requirements!</span>
+      <span *ngIf="overallProgress >= 80 && overallProgress < 100">👍 You're almost there! Keep going!</span>
+      <span *ngIf="overallProgress < 80">💪 Keep working hard! You can do it!</span>
+    </p>
+  </div>
+
+  <!-- Subject-by-Subject Progress -->
+  <div class="subjects-progress">
+    <h3>Subject Breakdown</h3>
+    <div class="subject-cards">
+      <div *ngFor="let subject of subjectProgress" class="subject-card" [class]="'status-' + subject.status">
+        <div class="subject-header">
+          <h4>{{subject.subject}}</h4>
+          <span class="status-badge" [class]="'badge-' + subject.status">
+            {{getStatusIcon(subject.status)}} {{getStatusText(subject.status)}}
+          </span>
+        </div>
+
+        <!-- Progress Bar -->
+        <div class="progress-section">
+          <div class="progress-labels">
+            <span class="current-grade">Your Grade: <strong>{{subject.current}}%</strong></span>
+            <span class="required-grade">Required: <strong>{{subject.required}}%</strong></span>
+          </div>
+          <div class="progress-bar-container">
+            <div 
+              class="progress-bar-fill" 
+              [style.width.%]="subject.progress"
+              [style.background]="getProgressColor(subject.progress, subject.status)">
+            </div>
+            <div class="progress-bar-target" [style.left.%]="(subject.required / 100) * 100"></div>
+          </div>
+          <div class="progress-info">
+            <span *ngIf="subject.status === 'met'" class="success-text">
+              ✅ You've met the requirement!
+            </span>
+            <span *ngIf="subject.status !== 'met'" class="improvement-text">
+              Need to improve by <strong>+{{subject.improvementNeeded}}%</strong>
+            </span>
+          </div>
+        </div>
+
+        <!-- Visual Comparison -->
+        <div class="comparison-section">
+          <div class="comparison-bar">
+            <div class="bar-segment current" [style.width.%]="subject.current">
+              <span class="bar-label">{{subject.current}}%</span>
+            </div>
+            <div class="bar-segment gap" [style.width.%]="subject.improvementNeeded" *ngIf="subject.improvementNeeded > 0">
+              <span class="gap-label">+{{subject.improvementNeeded}}%</span>
+            </div>
+            <div class="bar-segment required" [style.width.%]="subject.required">
+              <span class="bar-label">{{subject.required}}%</span>
+            </div>
+          </div>
+          <div class="comparison-legend">
+            <span><span class="legend-box current"></span> Your Grade</span>
+            <span><span class="legend-box gap"></span> Gap to Fill</span>
+            <span><span class="legend-box required"></span> Required</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Simple Summary -->
+  <div class="progress-summary">
+    <div class="summary-item">
+      <span class="summary-number">{{getMetCount()}}</span>
+      <span class="summary-label">Requirements Met</span>
+    </div>
+    <div class="summary-item">
+      <span class="summary-number">{{getCloseCount()}}</span>
+      <span class="summary-label">Almost There</span>
+    </div>
+    <div class="summary-item">
+      <span class="summary-number">{{getNeedsWorkCount()}}</span>
+      <span class="summary-label">Need Improvement</span>
+    </div>
+  </div>
+</div>
+

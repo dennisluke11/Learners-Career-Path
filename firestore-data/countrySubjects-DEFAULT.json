@@ -1,0 +1,38 @@
+{
+  "subjects": [
+    {
+      "standardName": "Math",
+      "displayName": "Mathematics",
+      "required": true
+    },
+    {
+      "standardName": "English",
+      "displayName": "English",
+      "required": true
+    },
+    {
+      "standardName": "Physics",
+      "displayName": "Physics",
+      "required": false
+    },
+    {
+      "standardName": "Chemistry",
+      "displayName": "Chemistry",
+      "required": false
+    },
+    {
+      "standardName": "Biology",
+      "displayName": "Biology",
+      "required": false
+    },
+    {
+      "standardName": "History",
+      "displayName": "History",
+      "required": false
+    }
+  ]
+}
+
+
+
+

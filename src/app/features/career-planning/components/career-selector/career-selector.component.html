@@ -1,0 +1,46 @@
+<div class="career-selector-container">
+  <h2>Select Your Desired Career</h2>
+  
+  <div *ngIf="loading" class="loading-message">
+    <p>Loading careers from database...</p>
+  </div>
+  
+  <div *ngIf="error" class="error-message">
+    <p>{{ error }}</p>
+  </div>
+  
+  <div *ngIf="!loading && !error" class="careers-info">
+    <p class="careers-count">{{ careers.length }} career{{ careers.length !== 1 ? 's' : '' }} available</p>
+  </div>
+  
+  <div class="select-wrapper" [class.disabled]="loading || careers.length === 0">
+    <select 
+      (change)="onSelectCareer($event)" 
+      class="career-select"
+      [disabled]="loading || careers.length === 0">
+      <option value="" disabled selected>
+        {{ loading ? 'Loading...' : careers.length === 0 ? 'No careers available' : 'Select Desired Career' }}
+      </option>
+      <option *ngFor="let career of careers" [value]="career.name">
+        {{ career.name }}<span *ngIf="career.category"> ({{ career.category }})</span>
+      </option>
+    </select>
+  </div>
+  
+  <div *ngIf="selectedCareer" class="selected-career-info">
+    <h3>Selected: {{selectedCareer.name}}</h3>
+    <div *ngIf="selectedCountry" class="country-badge">
+      <span>{{selectedCountry.flag}}</span>
+      <span>Requirements for {{selectedCountry.name}}</span>
+    </div>
+    <div class="requirements">
+      <h4>Minimum Requirements:</h4>
+      <ul>
+        <li *ngFor="let subject of Object.keys(selectedCareer.minGrades)">
+          {{subject}}: {{selectedCareer.minGrades[subject]}}%
+        </li>
+      </ul>
+    </div>
+  </div>
+</div>
+

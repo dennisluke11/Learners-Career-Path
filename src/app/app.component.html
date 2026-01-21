@@ -1,0 +1,65 @@
+<div class="app-container">
+  <header class="app-header">
+    <div class="header-content">
+      <img [src]="logoPath()" alt="Learner's Career Path" class="app-logo" />
+      <div class="header-text">
+        <h1>Learner's Career Path</h1>
+        <p class="subtitle">Your journey from current grades to future success</p>
+      </div>
+    </div>
+  </header>
+
+  <main class="app-main">
+    <app-announcements
+      [selectedCountry]="selectedCountryValue()"
+      [selectedCareer]="selectedCareerValue()"
+      [selectedGradeLevel]="selectedGradeLevelValue()">
+    </app-announcements>
+    
+    <app-country-selector 
+      [selectedCountry]="selectedCountryValue()"
+      (countryChange)="onCountryChange($event)">
+    </app-country-selector>
+    
+    <app-grade-level-selector 
+      [selectedCountry]="selectedCountryValue()"
+      [selectedGradeLevel]="selectedGradeLevelValue()"
+      (gradeLevelChange)="onGradeLevelChange($event)">
+    </app-grade-level-selector>
+    
+    <app-grade-input 
+      [selectedCountry]="selectedCountryValue()"
+      (gradesChange)="onGradesChange($event)">
+    </app-grade-input>
+    
+    <app-eligible-careers
+      [grades]="gradesValue()"
+      [selectedCountry]="selectedCountryValue()">
+    </app-eligible-careers>
+    
+    <app-career-selector 
+      [selectedCareer]="selectedCareerValue()"
+      [selectedCountry]="selectedCountryValue()"
+      (careerChange)="onCareerChange($event)">
+    </app-career-selector>
+    
+    <app-improvement-display 
+      [grades]="gradesValue()" 
+      [career]="selectedCareerValue()">
+    </app-improvement-display>
+    
+    <app-progress-charts 
+      [grades]="gradesValue()" 
+      [career]="selectedCareerValue()">
+    </app-progress-charts>
+    
+    <app-study-resources 
+      [selectedCountry]="selectedCountryValue()"
+      [selectedGradeLevel]="selectedGradeLevelValue()"
+      [selectedSubjects]="selectedSubjectsValue()"
+      [subjectsNeedingImprovement]="subjectsNeedingImprovementValue()"
+      [selectedCareer]="selectedCareerValue()">
+    </app-study-resources>
+  </main>
+</div>
+

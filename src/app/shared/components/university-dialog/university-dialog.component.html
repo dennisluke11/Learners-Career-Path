@@ -1,0 +1,95 @@
+<div class="dialog-overlay" *ngIf="isOpen" (click)="onOverlayClick($event)">
+  <div class="dialog-container">
+    <!-- Header -->
+    <div class="dialog-header">
+      <div class="header-content">
+        <span class="header-icon">🏛️</span>
+        <div class="header-text">
+          <h3>Universities Offering {{ career?.name }}</h3>
+          <p class="qualification-badge" *ngIf="qualificationLevel">
+            {{ qualificationLevel.level }} (NQF {{ qualificationLevel.nqfLevel || 'N/A' }})
+          </p>
+        </div>
+      </div>
+      <button class="close-btn" (click)="onClose()">×</button>
+    </div>
+
+    <!-- User APS Score -->
+    <div class="aps-summary">
+      <div class="aps-card">
+        <span class="aps-label">Your APS Score</span>
+        <span class="aps-value">{{ userAps }}</span>
+        <span class="aps-hint">Based on your grades</span>
+      </div>
+    </div>
+
+    <!-- University List -->
+    <div class="universities-list" *ngIf="universities.length > 0">
+      <div 
+        *ngFor="let uni of universities" 
+        class="university-card"
+        [class.qualified]="uni.status === 'qualified'"
+        [class.close]="uni.status === 'close'"
+        [class.not-eligible]="uni.status === 'not-eligible'">
+        
+        <div class="uni-header">
+          <span class="status-icon">{{ getStatusIcon(uni.status) }}</span>
+          <h4 class="uni-name">{{ uni.institution }}</h4>
+        </div>
+
+        <div class="uni-details">
+          <div class="aps-comparison">
+            <div class="aps-item">
+              <span class="label">APS Required</span>
+              <span class="value required">{{ uni.apsRequired || 'N/A' }}</span>
+            </div>
+            <div class="aps-item">
+              <span class="label">Your APS</span>
+              <span class="value yours">{{ uni.userAps }}</span>
+            </div>
+            <div class="aps-item status-item" [class]="uni.status">
+              <span class="label">Status</span>
+              <span class="value status">{{ getStatusLabel(uni.status) }}</span>
+            </div>
+          </div>
+
+          <div class="difference-badge" [class]="uni.status">
+            {{ getApsDifferenceText(uni.apsDifference) }}
+          </div>
+
+          <p class="uni-notes" *ngIf="uni.notes">
+            <span class="notes-icon">💡</span> {{ uni.notes }}
+          </p>
+
+          <div class="uni-footer">
+            <span class="verified-date" *ngIf="uni.verifiedDate">
+              Verified: {{ uni.verifiedDate }}
+            </span>
+            <button 
+              class="visit-btn" 
+              *ngIf="uni.url"
+              (click)="openUniversityWebsite(uni.url)">
+              Visit Website →
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- No Universities -->
+    <div class="no-universities" *ngIf="universities.length === 0">
+      <span class="empty-icon">📚</span>
+      <p>No university data available for this qualification level.</p>
+      <p class="hint">We're working on adding more universities!</p>
+    </div>
+
+    <!-- Footer Tip -->
+    <div class="dialog-footer">
+      <p class="tip">
+        <span class="tip-icon">💡</span>
+        <strong>Tip:</strong> Requirements vary by university. Apply to multiple institutions to maximize your chances!
+      </p>
+    </div>
+  </div>
+</div>
+

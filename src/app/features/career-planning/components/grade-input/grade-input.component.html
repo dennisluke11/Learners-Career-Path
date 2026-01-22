@@ -1,0 +1,89 @@
+<div class="grade-input-container" [formGroup]="gradeForm">
+  <h2>Enter Your Current Grades</h2>
+  <div *ngIf="selectedCountry" class="country-note">
+    <span>{{selectedCountry.flag}}</span>
+    <span>Subjects for {{selectedCountry.name}} curriculum</span>
+  </div>
+
+  <!-- Compulsory Subjects Section -->
+  <div *ngIf="getRequiredSubjects().length > 0" class="compulsory-section">
+    <h3 class="section-title">
+      <span class="section-icon">📋</span>
+      Compulsory Subjects
+      <span class="section-badge">{{getRequiredSubjects().length}}</span>
+    </h3>
+    <p class="section-description">
+      These subjects are required for your {{selectedCountry?.name}} curriculum. Please enter your grades for all compulsory subjects.
+      <span *ngIf="selectedCountry?.code === 'ZA'" class="math-note">
+        <strong>Important:</strong> You must enter a grade for either <strong>Mathematics</strong> OR <strong>Mathematical Literacy</strong> (not both). 
+        You must also enter a grade for either <strong>English (Home Language)</strong> OR <strong>English (First Additional Language)</strong> (not both). 
+        When you enter a value for one, the other will be automatically hidden.
+      </span>
+    </p>
+    <div class="form-grid">
+      <ng-container *ngFor="let mapping of getRequiredSubjects()">
+        <div *ngIf="!isSubjectHidden(mapping.standardName)"
+             class="form-group required">
+          <label [for]="mapping.standardName">
+            {{mapping.displayName}}
+            <span class="required-badge">Required</span>
+          </label>
+          <input 
+            type="number" 
+            [id]="mapping.standardName"
+            [formControlName]="mapping.standardName" 
+            (input)="handleEitherOrInput(mapping.standardName); onGradesChange()"
+            min="0"
+            max="100"
+            [placeholder]="getPlaceholder(mapping.standardName)"
+            [required]="mapping.required"
+          />
+          <span *ngIf="gradeForm.get(mapping.standardName)?.invalid && gradeForm.get(mapping.standardName)?.touched" class="error-message">
+            <span *ngIf="gradeForm.get(mapping.standardName)?.errors?.['required']">This field is required</span>
+            <span *ngIf="gradeForm.get(mapping.standardName)?.errors?.['mathOrMathLiteracyRequired']">
+              You must enter a grade for either Mathematics or Mathematical Literacy
+            </span>
+            <span *ngIf="gradeForm.get(mapping.standardName)?.errors?.['englishOrEnglishFALRequired']">
+              You must enter a grade for either English (Home Language) or English (First Additional Language)
+            </span>
+            <span *ngIf="gradeForm.get(mapping.standardName)?.errors?.['min'] || gradeForm.get(mapping.standardName)?.errors?.['max']">
+              Please enter a valid grade (0-100)
+            </span>
+          </span>
+        </div>
+      </ng-container>
+    </div>
+  </div>
+
+  <!-- Elective Subjects Section -->
+  <div *ngIf="getElectiveSubjects().length > 0" class="elective-section">
+    <h3 class="section-title">
+      <span class="section-icon">📚</span>
+      Elective Subjects
+      <span class="section-badge">{{getElectiveSubjects().length}}</span>
+    </h3>
+    <p class="section-description">
+      Select and enter grades for the elective subjects you are taking. Enter grades only for subjects you are currently studying.
+    </p>
+    <div class="form-grid">
+      <div *ngFor="let mapping of getElectiveSubjects()" class="form-group">
+        <label [for]="mapping.standardName">
+          {{mapping.displayName}}
+        </label>
+        <input 
+          type="number" 
+          [id]="mapping.standardName"
+          [formControlName]="mapping.standardName" 
+          (input)="onGradesChange()"
+          min="0"
+          max="100"
+          placeholder="Enter grade (0-100) - Optional"
+        />
+        <span *ngIf="gradeForm.get(mapping.standardName)?.invalid && gradeForm.get(mapping.standardName)?.touched" class="error-message">
+          Please enter a valid grade (0-100)
+        </span>
+      </div>
+    </div>
+  </div>
+</div>
+

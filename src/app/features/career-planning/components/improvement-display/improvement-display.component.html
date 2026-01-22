@@ -1,0 +1,20 @@
+<div *ngIf="career && grades" class="improvement-display-container">
+  <h2>Improvements Needed for {{career.name}}</h2>
+  
+  <div *ngIf="meetsAllRequirements()" class="success-message">
+    <h3>🎉 Congratulations!</h3>
+    <p>You meet all the requirements for {{career.name}}!</p>
+  </div>
+
+  <div *ngIf="hasImprovements()" class="improvements-section">
+    <!-- Bar Chart Visualization -->
+    <div class="improvement-chart-container">
+      <canvas #improvementChart></canvas>
+    </div>
+  </div>
+
+  <div *ngIf="!hasImprovements() && !meetsAllRequirements()" class="no-data">
+    <p>Please enter your grades and select a career to see improvements needed.</p>
+  </div>
+</div>
+

@@ -1,0 +1,15 @@
+<div class="country-selector-container">
+  <h2>Select Your Country</h2>
+  <div class="select-wrapper">
+    <select (change)="onSelectCountry($event)" class="country-select" [value]="selectedCountry?.code">
+      <option value="" disabled>Select Country</option>
+      <option *ngFor="let country of countries" [value]="country.code">
+        {{country.flag}} {{country.name}}
+      </option>
+    </select>
+  </div>
+  <div *ngIf="selectedCountry" class="selected-country-info">
+    <p>📚 Career requirements will be adjusted for <strong>{{selectedCountry.name}}</strong> curriculum standards</p>
+  </div>
+</div>
+

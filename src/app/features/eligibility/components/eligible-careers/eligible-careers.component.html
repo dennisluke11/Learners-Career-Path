@@ -1,0 +1,226 @@
+<div *ngIf="grades && Object.keys(grades).length > 0" class="eligible-careers-container">
+  <h2>🎓 Courses & Careers You Qualify For</h2>
+  <p class="subtitle">Based on your current grades, here are the opportunities available to you</p>
+
+  <div *ngIf="loading" class="loading">
+    <p>Checking your eligibility...</p>
+  </div>
+
+  <div *ngIf="!loading">
+    <!-- Fully Qualified Careers -->
+    <div *ngIf="qualifiedCareers.length > 0" class="careers-section qualified-section">
+      <h3 class="section-title">
+        <span class="icon">✅</span>
+        Fully Qualified ({{ qualifiedCareers.length }})
+      </h3>
+      <p class="section-description">Congratulations! You meet all requirements for these careers.</p>
+      
+      <div class="careers-grid">
+        <div *ngFor="let eligible of qualifiedCareers" class="career-card qualified">
+          <div class="career-header">
+            <h4>{{ eligible.career.name }}</h4>
+            <span class="status-badge qualified-badge">{{ getStatusLabel(eligible.status) }}</span>
+          </div>
+          <div class="career-info">
+            <div class="match-score">
+              <span class="score-label">Match Score:</span>
+              <span class="score-value">{{ eligible.matchScore }}%</span>
+            </div>
+            <div class="requirements-met">
+              <span class="success-message">✓ All requirements met!</span>
+            </div>
+            
+            <!-- Market Data Section -->
+            <div class="market-data-section">
+              <div *ngIf="isMarketDataLoading(eligible.career.name)" class="market-loading">
+                <span>Loading market data...</span>
+              </div>
+              
+              <div *ngIf="!isMarketDataLoading(eligible.career.name) && getMarketData(eligible.career.name)" class="market-info">
+                <!-- Total Job Count (Last 12 Months) -->
+                <div *ngIf="getMarketData(eligible.career.name)?.totalJobCount" class="job-count">
+                  <span class="market-label">📊 Total Jobs (Last 12 Months):</span>
+                  <span class="count-value">{{ formatNumber(getMarketData(eligible.career.name)!.totalJobCount!) }}</span>
+                  <div *ngIf="getMarketData(eligible.career.name)?.jobCountsBySite && getMarketData(eligible.career.name)!.jobCountsBySite!.length > 0" class="job-counts-by-site">
+                    <span class="sites-label">From:</span>
+                    <span *ngFor="let siteCount of getMarketData(eligible.career.name)!.jobCountsBySite!" class="site-count">
+                      {{ siteCount.site }} ({{ formatNumber(siteCount.count) }})
+                    </span>
+                  </div>
+                </div>
+                
+                <!-- Salary Ranges by Level -->
+                <div *ngIf="getMarketData(eligible.career.name)?.salaryRangesByLevel" class="salary-ranges">
+                  <span class="market-label">💰 Salary Ranges:</span>
+                  <div class="salary-levels">
+                    <div class="salary-level">
+                      <span class="level-label">Junior:</span>
+                      <span class="salary-value">{{ formatSalaryRange(getMarketData(eligible.career.name)!.salaryRangesByLevel!.junior) }}</span>
+                    </div>
+                    <div class="salary-level">
+                      <span class="level-label">Mid:</span>
+                      <span class="salary-value">{{ formatSalaryRange(getMarketData(eligible.career.name)!.salaryRangesByLevel!.mid) }}</span>
+                    </div>
+                    <div class="salary-level">
+                      <span class="level-label">Senior:</span>
+                      <span class="salary-value">{{ formatSalaryRange(getMarketData(eligible.career.name)!.salaryRangesByLevel!.senior) }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- View Universities Button -->
+            <button 
+              *ngIf="hasUniversityData(eligible.career)"
+              class="view-universities-btn"
+              (click)="openUniversityDialog(eligible.career)">
+              🏛️ {{ getUniversityCount(eligible.career) }} Universities
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Close to Qualifying - Grouped by Curriculum -->
+    <div *ngIf="closeCareers.length > 0" class="careers-section close-section">
+      <h3 class="section-title">
+        <span class="icon">🎯</span>
+        Close to Qualifying ({{ closeCareers.length }})
+      </h3>
+      <p class="section-description">You're almost there! These careers are within reach with a little improvement, organized by university curriculum.</p>
+      
+      <!-- Grouped by Category -->
+      <div *ngFor="let category of getCategoryKeys()" class="category-group">
+        <h4 class="category-title">
+          <span class="category-icon">{{ getCategoryIcon(category) }}</span>
+          {{ category }} ({{ closeCareersByCategory[category].length }})
+        </h4>
+        
+        <div class="careers-grid">
+          <div *ngFor="let eligible of closeCareersByCategory[category]" class="career-card close">
+            <div class="career-header">
+              <h4>{{ eligible.career.name }}</h4>
+              <span class="status-badge close-badge">{{ getStatusLabel(eligible.status) }}</span>
+            </div>
+            <div class="career-info">
+              <div class="match-score">
+                <span class="score-label">Match Score:</span>
+                <span class="score-value">{{ eligible.matchScore }}%</span>
+              </div>
+              
+              <div *ngIf="eligible.closeSubjects.length > 0" class="close-subjects">
+                <p class="info-label">Almost there in:</p>
+                <ul class="subject-list">
+                  <li *ngFor="let subject of eligible.closeSubjects">
+                    <div class="subject-improvement">
+                      <span class="subject-name">{{ subject }}</span>
+                      <span *ngIf="getImprovementDetails(eligible, subject)" class="improvement-details">
+                        <span class="current-grade">Current: {{ getImprovementDetails(eligible, subject)?.current }}%</span>
+                        <span class="required-grade">Required: {{ getImprovementDetails(eligible, subject)?.required }}%</span>
+                        <span class="improvement-needed">Need: +{{ getImprovementDetails(eligible, subject)?.improvement }}%</span>
+                      </span>
+                    </div>
+                  </li>
+                </ul>
+              </div>
+              
+              <div *ngIf="eligible.missingSubjects.length > 0" class="missing-subjects">
+                <p class="info-label">Need improvement in:</p>
+                <ul class="subject-list">
+                  <li *ngFor="let subject of eligible.missingSubjects">
+                    <div class="subject-improvement">
+                      <span class="subject-name">{{ subject }}</span>
+                      <span *ngIf="getImprovementDetails(eligible, subject)" class="improvement-details">
+                        <span class="current-grade">Current: {{ getImprovementDetails(eligible, subject)?.current }}%</span>
+                        <span class="required-grade">Required: {{ getImprovementDetails(eligible, subject)?.required }}%</span>
+                        <span class="improvement-needed">Need: +{{ getImprovementDetails(eligible, subject)?.improvement }}%</span>
+                      </span>
+                    </div>
+                  </li>
+                </ul>
+              </div>
+              
+              <!-- Market Data Section -->
+              <div class="market-data-section">
+                <div *ngIf="isMarketDataLoading(eligible.career.name)" class="market-loading">
+                  <span>Loading market data...</span>
+                </div>
+                
+                <div *ngIf="!isMarketDataLoading(eligible.career.name) && getMarketData(eligible.career.name)" class="market-info">
+                  <!-- Total Job Count (Last 12 Months) -->
+                  <div *ngIf="getMarketData(eligible.career.name)?.totalJobCount" class="job-count">
+                    <span class="market-label">📊 Total Jobs (Last 12 Months):</span>
+                    <span class="count-value">{{ formatNumber(getMarketData(eligible.career.name)!.totalJobCount!) }}</span>
+                    <div *ngIf="getMarketData(eligible.career.name)?.jobCountsBySite && getMarketData(eligible.career.name)!.jobCountsBySite!.length > 0" class="job-counts-by-site">
+                      <span class="sites-label">From:</span>
+                      <span *ngFor="let siteCount of getMarketData(eligible.career.name)!.jobCountsBySite!" class="site-count">
+                        {{ siteCount.site }} ({{ formatNumber(siteCount.count) }})
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <!-- Salary Ranges by Level -->
+                  <div *ngIf="getMarketData(eligible.career.name)?.salaryRangesByLevel" class="salary-ranges">
+                    <span class="market-label">💰 Salary Ranges:</span>
+                    <div class="salary-levels">
+                      <div class="salary-level">
+                        <span class="level-label">Junior:</span>
+                        <span class="salary-value">{{ formatSalaryRange(getMarketData(eligible.career.name)!.salaryRangesByLevel!.junior) }}</span>
+                      </div>
+                      <div class="salary-level">
+                        <span class="level-label">Mid:</span>
+                        <span class="salary-value">{{ formatSalaryRange(getMarketData(eligible.career.name)!.salaryRangesByLevel!.mid) }}</span>
+                      </div>
+                      <div class="salary-level">
+                        <span class="level-label">Senior:</span>
+                        <span class="salary-value">{{ formatSalaryRange(getMarketData(eligible.career.name)!.salaryRangesByLevel!.senior) }}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- View Universities Button -->
+              <button 
+                *ngIf="hasUniversityData(eligible.career)"
+                class="view-universities-btn"
+                (click)="openUniversityDialog(eligible.career)">
+                🏛️ {{ getUniversityCount(eligible.career) }} Universities
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- No Qualifications -->
+    <div *ngIf="qualifiedCareers.length === 0 && closeCareers.length === 0" class="no-qualifications">
+      <div class="empty-state">
+        <span class="icon">📚</span>
+        <h3>Keep Working!</h3>
+        <p>Based on your current grades, you haven't qualified for any careers yet. But don't worry!</p>
+        <p class="encouragement">Select a desired career above to see exactly what you need to improve.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div *ngIf="!grades || Object.keys(grades).length === 0" class="no-grades">
+  <div class="empty-state">
+    <span class="icon">📝</span>
+    <h3>Enter Your Grades</h3>
+    <p>Enter your grades above to see which courses and careers you qualify for!</p>
+  </div>
+</div>
+
+<!-- University Dialog -->
+<app-university-dialog
+  [career]="selectedCareerForDialog"
+  [qualificationLevel]="selectedQualificationLevel"
+  [grades]="grades"
+  [countryCode]="selectedCountry?.code || 'ZA'"
+  [isOpen]="showUniversityDialog"
+  (closeDialog)="closeUniversityDialog()">
+</app-university-dialog>
+

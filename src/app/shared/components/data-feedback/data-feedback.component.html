@@ -1,0 +1,129 @@
+<!-- Quick Feedback Buttons -->
+<div class="feedback-prompt" *ngIf="careerName && !showFeedbackForm">
+  <p class="feedback-question">Did you apply for <strong>{{ careerName }}</strong>? Help us improve!</p>
+  <div class="feedback-buttons">
+    <button 
+      class="btn btn-success btn-sm" 
+      (click)="openFeedbackForm('correct')"
+      title="Requirements shown are accurate">
+      ✅ Accurate
+    </button>
+    <button 
+      class="btn btn-warning btn-sm" 
+      (click)="openFeedbackForm('incorrect')"
+      title="Requirements shown are wrong">
+      ❌ Incorrect
+    </button>
+    <button 
+      class="btn btn-info btn-sm" 
+      (click)="openFeedbackForm('outdated')"
+      title="Requirements have changed">
+      🔄 Outdated
+    </button>
+  </div>
+</div>
+
+<!-- Detailed Feedback Form -->
+<div class="feedback-modal" *ngIf="showFeedbackForm">
+  <div class="feedback-overlay" (click)="closeFeedbackForm()"></div>
+  <div class="feedback-form">
+    <button class="close-btn" (click)="closeFeedbackForm()">×</button>
+    
+    <h3>
+      <span *ngIf="feedbackType === 'correct'">✅ Confirm Accuracy</span>
+      <span *ngIf="feedbackType === 'incorrect'">❌ Report Incorrect Data</span>
+      <span *ngIf="feedbackType === 'outdated'">🔄 Report Outdated Data</span>
+    </h3>
+    
+    <p class="career-name">{{ careerName }}</p>
+    
+    <!-- Success Message -->
+    <div class="success-message" *ngIf="submitted">
+      <span class="success-icon">✓</span>
+      <p>Thank you for your feedback!</p>
+    </div>
+    
+    <!-- Error Message -->
+    <div class="error-message" *ngIf="error">
+      <p>{{ error }}</p>
+    </div>
+    
+    <!-- Form Fields -->
+    <div class="form-fields" *ngIf="!submitted">
+      
+      <!-- University Applied To -->
+      <div class="form-group">
+        <label for="university">Which university did you apply to?</label>
+        <input 
+          type="text" 
+          id="university"
+          [(ngModel)]="university"
+          placeholder="e.g., University of Cape Town"
+          class="form-control">
+      </div>
+      
+      <!-- Year Applied -->
+      <div class="form-group">
+        <label for="yearApplied">Year Applied</label>
+        <select id="yearApplied" [(ngModel)]="yearApplied" class="form-control">
+          <option [ngValue]="null">Select year...</option>
+          <option *ngFor="let year of years" [ngValue]="year">{{ year }}</option>
+        </select>
+      </div>
+      
+      <!-- Acceptance Status -->
+      <div class="form-group">
+        <label>Were you accepted?</label>
+        <div class="acceptance-buttons">
+          <button 
+            type="button"
+            class="btn btn-outline"
+            [class.active]="wasAccepted === true"
+            (click)="setAccepted(true)">
+            ✅ Yes
+          </button>
+          <button 
+            type="button"
+            class="btn btn-outline"
+            [class.active]="wasAccepted === false"
+            (click)="setAccepted(false)">
+            ❌ No
+          </button>
+        </div>
+      </div>
+      
+      <!-- Actual Requirement (for incorrect/outdated) -->
+      <div class="form-group" *ngIf="feedbackType !== 'correct'">
+        <label for="actualRequirement">What are the correct requirements?</label>
+        <textarea 
+          id="actualRequirement"
+          [(ngModel)]="actualRequirement"
+          placeholder="e.g., Mathematics 75%, Physics 70%, APS 36..."
+          class="form-control"
+          rows="3"></textarea>
+      </div>
+      
+      <!-- Additional Comments -->
+      <div class="form-group">
+        <label for="comment">Additional comments (optional)</label>
+        <textarea 
+          id="comment"
+          [(ngModel)]="userComment"
+          placeholder="Any other details that would help us..."
+          class="form-control"
+          rows="2"></textarea>
+      </div>
+      
+      <!-- Submit Button -->
+      <button 
+        class="btn btn-primary submit-btn"
+        [disabled]="isSubmitting"
+        (click)="submitFeedback()">
+        <span *ngIf="!isSubmitting">Submit Feedback</span>
+        <span *ngIf="isSubmitting">Submitting...</span>
+      </button>
+      
+    </div>
+  </div>
+</div>
+

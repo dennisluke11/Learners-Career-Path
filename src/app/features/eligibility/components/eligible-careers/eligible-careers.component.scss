@@ -1,0 +1,431 @@
+.eligible-careers-container {
+  background: var(--background-white);
+  border-radius: 12px;
+  padding: 2rem;
+  margin: 2rem 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+
+  h2 {
+    color: var(--secondary-color);
+    margin: 0 0 0.5rem 0;
+    font-size: 2rem;
+  }
+
+  .subtitle {
+    color: var(--text-medium);
+    margin: 0 0 2rem 0;
+    font-size: 1rem;
+  }
+
+  .loading {
+    text-align: center;
+    padding: 2rem;
+    color: var(--text-medium);
+  }
+
+  .careers-section {
+    margin: 2rem 0;
+
+    .section-title {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      color: var(--secondary-color);
+      font-size: 1.5rem;
+      margin: 0 0 0.5rem 0;
+
+      .icon {
+        font-size: 1.5rem;
+      }
+    }
+
+    .section-description {
+      color: var(--text-medium);
+      margin: 0 0 1.5rem 0;
+      font-size: 0.95rem;
+    }
+
+    .careers-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 1.5rem;
+      margin-top: 1rem;
+
+      @media (max-width: 768px) {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .career-card {
+      position: relative;
+      background: var(--background-white);
+      border: 2px solid var(--border-color);
+      border-radius: 8px;
+      padding: 1.5rem;
+      padding-bottom: 3.5rem; // Space for the button
+      transition: all 0.3s ease;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+
+      &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      }
+
+      .career-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 1rem;
+
+        h4 {
+          color: var(--secondary-color);
+          margin: 0;
+          font-size: 1.25rem;
+          flex: 1;
+        }
+
+        .status-badge {
+          padding: 0.25rem 0.75rem;
+          border-radius: 20px;
+          font-size: 0.75rem;
+          font-weight: 600;
+          white-space: nowrap;
+        }
+
+        .qualified-badge {
+          background: var(--status-success);
+          color: white;
+        }
+
+        .close-badge {
+          background: var(--status-warning);
+          color: white;
+        }
+      }
+
+      .career-info {
+        .match-score {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 1rem;
+          padding: 0.75rem;
+          background: var(--background-light);
+          border-radius: 6px;
+
+          .score-label {
+            color: var(--text-medium);
+            font-size: 0.9rem;
+          }
+
+          .score-value {
+            color: var(--primary-color);
+            font-weight: 700;
+            font-size: 1.1rem;
+          }
+        }
+
+        .requirements-met {
+          .success-message {
+            color: var(--status-success);
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+          }
+        }
+
+        .close-subjects,
+        .missing-subjects {
+          margin-top: 1rem;
+
+          .info-label {
+            color: var(--text-medium);
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin: 0 0 0.5rem 0;
+          }
+
+          .subject-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+
+            li {
+              padding: 0.75rem;
+              margin: 0.5rem 0;
+              background: var(--background-light);
+              border-radius: 4px;
+              color: var(--text-dark);
+              font-size: 0.9rem;
+
+              .subject-improvement {
+                display: flex;
+                flex-direction: column;
+                gap: 0.5rem;
+
+                .subject-name {
+                  font-weight: 600;
+                  color: var(--text-dark);
+                  font-size: 0.95rem;
+                }
+
+                .improvement-details {
+                  display: flex;
+                  flex-wrap: wrap;
+                  gap: 0.5rem;
+                  font-size: 0.85rem;
+                  margin-top: 0.25rem;
+
+                  .current-grade,
+                  .required-grade,
+                  .improvement-needed {
+                    padding: 0.25rem 0.5rem;
+                    border-radius: 3px;
+                    white-space: nowrap;
+                  }
+
+                  .current-grade {
+                    color: var(--text-medium);
+                    background: var(--background-white);
+                  }
+
+                  .required-grade {
+                    color: var(--primary-color);
+                    font-weight: 600;
+                    background: var(--background-white);
+                  }
+
+                  .improvement-needed {
+                    color: var(--status-danger);
+                    font-weight: 700;
+                    background: rgba(231, 76, 60, 0.1);
+                  }
+                }
+
+                @media (max-width: 768px) {
+                  .improvement-details {
+                    flex-direction: column;
+                    gap: 0.25rem;
+
+                    .current-grade,
+                    .required-grade,
+                    .improvement-needed {
+                      width: 100%;
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        .close-subjects {
+          .subject-list li {
+            border-left: 3px solid var(--status-warning);
+          }
+        }
+
+        .missing-subjects {
+          .subject-list li {
+            border-left: 3px solid var(--status-danger);
+          }
+        }
+
+        // View Universities Button
+        .view-universities-btn {
+          position: absolute;
+          bottom: 1rem;
+          right: 1rem;
+          background: var(--primary-color);
+          color: white;
+          border: none;
+          padding: 0.5rem 0.85rem;
+          border-radius: 20px;
+          font-size: 0.8rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+
+          &:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+            filter: brightness(1.1);
+          }
+
+          &:active {
+            transform: translateY(0);
+          }
+        }
+
+        // Market Data Section
+        .market-data-section {
+          margin-top: 1rem;
+          padding-top: 1rem;
+          border-top: 1px solid var(--border-color);
+
+          .market-loading {
+            text-align: center;
+            padding: 0.5rem;
+            color: var(--text-medium);
+            font-size: 0.85rem;
+          }
+
+          .market-info {
+            .job-count,
+            .salary-ranges {
+              margin: 0.75rem 0;
+              font-size: 0.9rem;
+
+              .market-label {
+                display: block;
+                color: var(--text-medium);
+                font-weight: 600;
+                margin-bottom: 0.5rem;
+              }
+
+              .count-value {
+                color: var(--primary-color);
+                font-weight: 700;
+                font-size: 1.1rem;
+                display: inline-block;
+                margin-left: 0.5rem;
+              }
+
+              .job-counts-by-site {
+                margin-top: 0.5rem;
+                padding: 0.5rem;
+                background: var(--background-light);
+                border-radius: 4px;
+                font-size: 0.85rem;
+
+                .sites-label {
+                  color: var(--text-medium);
+                  font-weight: 600;
+                  margin-right: 0.5rem;
+                }
+
+                .site-count {
+                  display: inline-block;
+                  margin: 0 0.5rem 0.25rem 0;
+                  padding: 0.25rem 0.5rem;
+                  background: var(--background-white);
+                  border-radius: 3px;
+                  color: var(--text-dark);
+                  font-weight: 500;
+                }
+              }
+
+              .salary-levels {
+                display: flex;
+                flex-direction: column;
+                gap: 0.5rem;
+                margin-top: 0.5rem;
+
+                .salary-level {
+                  display: flex;
+                  justify-content: space-between;
+                  align-items: center;
+                  padding: 0.5rem;
+                  background: var(--background-light);
+                  border-radius: 4px;
+                  border-left: 3px solid var(--accent-color);
+
+                  .level-label {
+                    color: var(--text-medium);
+                    font-weight: 600;
+                    font-size: 0.85rem;
+                    min-width: 60px;
+                  }
+
+                  .salary-value {
+                    color: var(--status-success);
+                    font-weight: 700;
+                    font-size: 0.95rem;
+                    text-align: right;
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // Qualified section styling
+    &.qualified-section {
+      .career-card {
+        border-color: var(--status-success);
+        background: linear-gradient(to bottom, rgba(39, 174, 96, 0.05), var(--background-white));
+      }
+    }
+
+    // Close section styling
+    &.close-section {
+      .career-card {
+        border-color: var(--status-warning);
+        background: linear-gradient(to bottom, rgba(243, 156, 18, 0.05), var(--background-white));
+      }
+
+      .category-group {
+        margin: 2rem 0;
+        padding: 1.5rem;
+        background: var(--background-light);
+        border-radius: 8px;
+        border-left: 4px solid var(--accent-color);
+
+        .category-title {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          color: var(--secondary-color);
+          font-size: 1.25rem;
+          margin: 0 0 1rem 0;
+          font-weight: 600;
+
+          .category-icon {
+            font-size: 1.5rem;
+          }
+        }
+
+        .careers-grid {
+          margin-top: 1rem;
+        }
+      }
+    }
+  }
+
+  .no-qualifications,
+  .no-grades {
+    .empty-state {
+      text-align: center;
+      padding: 3rem 2rem;
+      color: var(--text-medium);
+
+      .icon {
+        font-size: 4rem;
+        display: block;
+        margin-bottom: 1rem;
+      }
+
+      h3 {
+        color: var(--secondary-color);
+        margin: 0 0 1rem 0;
+        font-size: 1.5rem;
+      }
+
+      p {
+        margin: 0.5rem 0;
+        line-height: 1.6;
+      }
+
+      .encouragement {
+        color: var(--primary-color);
+        font-weight: 600;
+        margin-top: 1rem;
+      }
+    }
+  }
+}
+

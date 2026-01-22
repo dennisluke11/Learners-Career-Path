@@ -1,0 +1,23 @@
+<div class="grade-level-selector-container">
+  <h2>Select Your Grade Level</h2>
+  <div *ngIf="selectedCountry" class="country-context">
+    <span>{{selectedCountry.flag}}</span>
+    <span>{{selectedCountry.name}} - {{gradeSystem}} System</span>
+  </div>
+  <div class="select-wrapper">
+    <select 
+      (change)="onSelectGradeLevel($event)" 
+      class="grade-level-select"
+      [value]="selectedGradeLevel?.level || ''">
+      <option value="" disabled>Select {{gradeSystem}} Level</option>
+      <option *ngFor="let gradeLevel of gradeLevels" [value]="gradeLevel.level">
+        {{gradeLevel.displayName}}
+      </option>
+    </select>
+  </div>
+  <div *ngIf="selectedGradeLevel" class="selected-grade-info">
+    <p>📚 You're in <strong>{{selectedGradeLevel.displayName}}</strong></p>
+    <p class="info-text">Career requirements will be tailored for your level</p>
+  </div>
+</div>
+

@@ -1,0 +1,68 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Allow read access to all collections for authenticated and unauthenticated users
+    // In production, you may want to restrict this further
+    
+    // Countries collection - public read
+    match /countries/{document=**} {
+      allow read: if true;
+      allow write: if false; // Only admins can write (configure separately)
+    }
+    
+    // Careers collection - public read
+    match /careers/{document=**} {
+      allow read: if true;
+      allow write: if false; // Only admins can write (configure separately)
+    }
+    
+    // Country subjects - public read
+    match /countrySubjects/{document=**} {
+      allow read: if true;
+      allow write: if false; // Only admins can write (configure separately)
+    }
+    
+    // Country grade levels - public read
+    match /countryGradeLevels/{document=**} {
+      allow read: if true;
+      allow write: if false; // Only admins can write (configure separately)
+    }
+    
+    // Announcements collection - public read, admin write
+    match /announcements/{document=**} {
+      allow read: if true;
+      allow write: if false; // Only admins can write (configure separately)
+      // Allow increment operations for views/clicks tracking
+      // When using increment(), Firestore sends the field update directly
+      // Allow update if only views and/or clicks are being modified
+      allow update: if request.resource.data.diff(resource.data).affectedKeys()
+        .hasOnly(['views', 'clicks']);
+    }
+    
+    // User events - public write for analytics
+    match /userEvents/{document=**} {
+      allow read: if false; // Only admins can read
+      allow create: if true; // Anyone can create events
+      allow update, delete: if false;
+    }
+    
+    // Market data collection - public read
+    match /marketData/{document=**} {
+      allow read: if true;
+      allow write: if false; // Only admins can write (configure separately)
+    }
+    
+    // Study resources collection - public read
+    match /studyResources/{document=**} {
+      allow read: if true;
+      allow write: if false; // Only admins can write (configure separately)
+    }
+    
+    // Default: deny all other access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+
+

@@ -1,0 +1,23 @@
+{
+  "system": "SS",
+  "levels": [
+    {
+      "level": 9,
+      "displayName": "SS 1"
+    },
+    {
+      "level": 10,
+      "displayName": "SS 2"
+    },
+    {
+      "level": 11,
+      "displayName": "SS 3"
+    }
+  ],
+  "maxLevel": 11
+}
+
+
+
+
+

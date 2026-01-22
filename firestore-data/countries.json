@@ -1,0 +1,31 @@
+[
+  { "code": "KE", "name": "Kenya", "flag": "🇰🇪", "active": true },
+  { "code": "NG", "name": "Nigeria", "flag": "🇳🇬", "active": true },
+  { "code": "ZA", "name": "South Africa", "flag": "🇿🇦", "active": true },
+  { "code": "GH", "name": "Ghana", "flag": "🇬🇭", "active": true },
+  { "code": "ET", "name": "Ethiopia", "flag": "🇪🇹", "active": true },
+  { "code": "TZ", "name": "Tanzania", "flag": "🇹🇿", "active": true },
+  { "code": "UG", "name": "Uganda", "flag": "🇺🇬", "active": true },
+  { "code": "RW", "name": "Rwanda", "flag": "🇷🇼", "active": true },
+  { "code": "EG", "name": "Egypt", "flag": "🇪🇬", "active": true },
+  { "code": "MA", "name": "Morocco", "flag": "🇲🇦", "active": true },
+  { "code": "DZ", "name": "Algeria", "flag": "🇩🇿", "active": true },
+  { "code": "TN", "name": "Tunisia", "flag": "🇹🇳", "active": true },
+  { "code": "SN", "name": "Senegal", "flag": "🇸🇳", "active": true },
+  { "code": "CI", "name": "Ivory Coast", "flag": "🇨🇮", "active": true },
+  { "code": "CM", "name": "Cameroon", "flag": "🇨🇲", "active": true },
+  { "code": "MW", "name": "Malawi", "flag": "🇲🇼", "active": true },
+  { "code": "ZM", "name": "Zambia", "flag": "🇿🇲", "active": true },
+  { "code": "ZW", "name": "Zimbabwe", "flag": "🇿🇼", "active": true },
+  { "code": "AO", "name": "Angola", "flag": "🇦🇴", "active": true },
+  { "code": "MZ", "name": "Mozambique", "flag": "🇲🇿", "active": true },
+  { "code": "US", "name": "United States", "flag": "🇺🇸", "active": true },
+  { "code": "UK", "name": "United Kingdom", "flag": "🇬🇧", "active": true },
+  { "code": "CA", "name": "Canada", "flag": "🇨🇦", "active": true },
+  { "code": "AU", "name": "Australia", "flag": "🇦🇺", "active": true }
+]
+
+
+
+
+

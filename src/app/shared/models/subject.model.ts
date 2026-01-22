@@ -4,11 +4,22 @@ export interface SubjectMapping {
   required: boolean;      // Is this subject required for grade input?
 }
 
+export interface EitherOrGroup {
+  subjects: string[];  // Array of standard subject names (e.g., ["Math", "MathLiteracy"])
+  description: string;  // Display description (e.g., "Mathematics OR Mathematical Literacy")
+  minRequired?: number; // Minimum number of subjects from this group that must be entered (default: 1)
+  maxAllowed?: number;  // Maximum number of subjects from this group that can be entered (default: 1)
+}
+
+export interface CountrySubjectsData {
+  subjects: SubjectMapping[];
+  subjectAliases?: { [localName: string]: string }; // Map local names to standard names
+  eitherOrGroups?: EitherOrGroup[]; // Groups of subjects where only one (or a subset) is required
+  mandatorySubjects?: string[]; // Standard names of subjects that are mandatory (alternative to required: true)
+}
+
 export interface CountrySubjects {
-  [countryCode: string]: {
-    subjects: SubjectMapping[];
-    subjectAliases?: { [localName: string]: string }; // Map local names to standard names
-  };
+  [countryCode: string]: CountrySubjectsData;
 }
 
 /**

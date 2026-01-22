@@ -16,10 +16,6 @@ const routes: Routes = [
     loadChildren: () => import('./features/eligibility/eligibility.module').then(m => m.EligibilityModule)
   },
   {
-    path: 'study-resources',
-    loadChildren: () => import('./features/study-resources/study-resources.module').then(m => m.StudyResourcesModule)
-  },
-  {
     path: '**',
     redirectTo: '/home'
   }

@@ -1,11 +1,14 @@
 import { Injectable } from '@angular/core';
 import { Grades } from '../../../shared/models/grades.model';
 import { Career } from '../../../shared/models/career.model';
+import { SubjectsService } from '../../../shared/services/subjects.service';
+import { EitherOrGroup } from '../../../shared/models/subject.model';
 
 @Injectable({ providedIn: 'root' })
 export class ImprovementService {
+  constructor(private subjectsService: SubjectsService) {}
 
-  calculateImprovements(studentGrades: Grades, career: Career, countryCode: string = 'ZA'): { [subject: string]: number } {
+  async calculateImprovements(studentGrades: Grades, career: Career, countryCode: string = 'ZA'): Promise<{ [subject: string]: number }> {
     const improvements: { [subject: string]: number } = {};
     const requirements = career.minGrades || {};
 
@@ -14,42 +17,45 @@ export class ImprovementService {
     }
 
     const processedSubjects = new Set<string>();
+    const eitherOrGroups = await this.subjectsService.getEitherOrGroups(countryCode);
 
-    if (countryCode === 'ZA' && requirements['Math'] !== undefined && requirements['MathLiteracy'] !== undefined) {
-      const mathGrade = this.getGradeForSubject(studentGrades, 'Math', countryCode);
-      const mathLitGrade = this.getGradeForSubject(studentGrades, 'MathLiteracy', countryCode);
-      const bestGrade = Math.max(mathGrade, mathLitGrade);
-      const mathRequired = requirements['Math'];
-      const mathLitRequired = requirements['MathLiteracy'];
-      const minRequired = Math.min(mathRequired, mathLitRequired);
-
-      processedSubjects.add('Math');
-      processedSubjects.add('MathLiteracy');
-
-      if (bestGrade < minRequired) {
-        improvements['Mathematics OR Mathematical Literacy'] = minRequired - bestGrade;
+    for (const group of eitherOrGroups) {
+      const groupSubjectsInRequirements = group.subjects.filter(subj => requirements[subj] !== undefined);
+      if (groupSubjectsInRequirements.length === 0) {
+        continue;
       }
-    }
 
-    if (countryCode === 'ZA' && requirements['English'] !== undefined && requirements['EnglishFAL'] !== undefined) {
-      const engGrade = this.getGradeForSubject(studentGrades, 'English', countryCode);
-      const engFALGrade = this.getGradeForSubject(studentGrades, 'EnglishFAL', countryCode);
-      const bestGrade = Math.max(engGrade, engFALGrade);
-      const engRequired = requirements['English'];
-      const engFALRequired = requirements['EnglishFAL'];
-      const minRequired = Math.min(engRequired, engFALRequired);
+      group.subjects.forEach(subj => processedSubjects.add(subj));
 
-      processedSubjects.add('English');
-      processedSubjects.add('EnglishFAL');
+      const enteredSubjects = groupSubjectsInRequirements.filter(subj => 
+        this.isSubjectEntered(studentGrades, subj, countryCode)
+      );
+
+      if (enteredSubjects.length === 0) {
+        continue;
+      }
+
+      const gradesForGroup = enteredSubjects.map(subj => ({
+        grade: this.getGradeForSubject(studentGrades, subj, countryCode),
+        required: requirements[subj]
+      }));
+
+      const bestGrade = Math.max(...gradesForGroup.map(g => g.grade));
+      const minRequired = Math.min(...gradesForGroup.map(g => g.required));
 
       if (bestGrade < minRequired) {
-        improvements['English (Home Language) OR English (First Additional Language)'] = minRequired - bestGrade;
+        improvements[group.description || group.subjects.join(' OR ')] = minRequired - bestGrade;
       }
     }
 
     for (const subject in requirements) {
       if (processedSubjects.has(subject)) {
         continue;
+      }
+
+      // Only calculate improvement if subject was actually entered
+      if (!this.isSubjectEntered(studentGrades, subject, countryCode)) {
+        continue; // Skip subjects not entered by the learner
       }
 
       const required = requirements[subject];
@@ -75,22 +81,85 @@ export class ImprovementService {
       return grades['IT'] || 0;
     }
 
-    if (countryCode === 'ZA') {
-      if (subjectName === 'Math' && grades['MathLiteracy'] !== undefined && grades['MathLiteracy'] !== null) {
-        return grades['MathLiteracy'] || 0;
+
+    return 0;
+  }
+
+  /**
+   * Check if a subject was actually entered by the user (exists in grades object)
+   * Returns true if subject exists in grades (even if value is 0)
+   * Returns false if subject is completely missing
+   */
+  private isSubjectEntered(grades: Grades, subjectName: string, countryCode: string): boolean {
+    if (!grades || Object.keys(grades).length === 0) {
+      return false;
+    }
+
+    // Check exact match
+    if (grades[subjectName] !== undefined && grades[subjectName] !== null) {
+      return true;
+    }
+
+    // Check normalized name
+    const normalized = this.normalizeSubjectName(subjectName, countryCode);
+    if (grades[normalized] !== undefined && grades[normalized] !== null) {
+      return true;
+    }
+
+    // Check case-insensitive match
+    const normalizedLower = normalized.toLowerCase();
+    for (const gradeKey in grades) {
+      if (grades[gradeKey] === undefined || grades[gradeKey] === null) continue;
+      
+      const normalizedGradeKey = this.normalizeSubjectName(gradeKey, countryCode);
+      if (normalizedGradeKey.toLowerCase() === normalizedLower) {
+        return true;
       }
-      if (subjectName === 'MathLiteracy' && grades['Math'] !== undefined && grades['Math'] !== null) {
-        return grades['Math'] || 0;
-      }
-      if (subjectName === 'English' && grades['EnglishFAL'] !== undefined && grades['EnglishFAL'] !== null) {
-        return grades['EnglishFAL'] || 0;
-      }
-      if (subjectName === 'EnglishFAL' && grades['English'] !== undefined && grades['English'] !== null) {
-        return grades['English'] || 0;
+      if (gradeKey.toLowerCase() === normalizedLower) {
+        return true;
       }
     }
 
-    return 0;
+
+    // Check IT/CAT mapping
+    if (subjectName === 'IT' || normalized === 'IT') {
+      if (grades['CAT'] !== undefined && grades['CAT'] !== null) {
+        return true;
+      }
+    }
+    if (subjectName === 'CAT' || normalized === 'CAT') {
+      if (grades['IT'] !== undefined && grades['IT'] !== null) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  private normalizeSubjectName(subjectName: string, countryCode: string): string {
+    // Basic normalization - match the logic from EligibilityService
+    let normalized = subjectName.trim();
+    
+    // Common variations
+    const variations: { [key: string]: string } = {
+      'Mathematics': 'Math',
+      'Mathematical Literacy': 'MathLiteracy',
+      'English Home Language': 'English',
+      'English (Home Language)': 'English',
+      'English First Additional Language': 'EnglishFAL',
+      'English (First Additional Language)': 'EnglishFAL',
+      'Information Technology': 'IT',
+      'Computer Applications Technology': 'CAT',
+      'Computer Application Technology': 'CAT',
+      'Business Studies': 'Business',
+      'Business': 'Business'
+    };
+
+    if (variations[normalized]) {
+      return variations[normalized];
+    }
+
+    return normalized;
   }
 
 }

@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 
 import { SharedModule } from '../../shared/shared.module';
 import { EligibleCareersComponent } from './components/eligible-careers/eligible-careers.component';
+import { UniversityDialogComponent } from '../../shared/components/university-dialog/university-dialog.component';
 
 import { EligibilityService } from './services/eligibility.service';
 
@@ -12,7 +13,8 @@ import { EligibilityService } from './services/eligibility.service';
   ],
   imports: [
     CommonModule,
-    SharedModule
+    SharedModule,
+    UniversityDialogComponent
   ],
   providers: [
     EligibilityService

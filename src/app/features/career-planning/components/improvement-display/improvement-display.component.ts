@@ -3,7 +3,6 @@ import { Chart, ChartConfiguration, ChartData, registerables } from 'chart.js';
 import { Grades } from '../../../../shared/models/grades.model';
 import { Career } from '../../../../shared/models/career.model';
 import { ImprovementService } from '../../services/improvement.service';
-import { AITipsService, AITip } from '../../../study-resources/services/ai-tips.service';
 
 // Register Chart.js components
 Chart.register(...registerables);
@@ -20,31 +19,27 @@ export class ImprovementDisplayComponent implements OnChanges, AfterViewInit, On
   @ViewChild('improvementChart', { static: false }) chartCanvas!: ElementRef<HTMLCanvasElement>;
 
   improvements: { [subject: string]: number } = {};
-  aiTips: { [subject: string]: AITip } = {};
-  loadingTips: { [subject: string]: boolean } = {};
   private improvementChart: Chart<'bar'> | null = null;
   Object = Object;
 
   constructor(
-    private improvementService: ImprovementService,
-    private aiTipsService: AITipsService
+    private improvementService: ImprovementService
   ) {}
 
-  ngAfterViewInit() {
-    setTimeout(() => {
+  async ngAfterViewInit() {
+    setTimeout(async () => {
       if (this.grades && this.career) {
         const countryCode = this.selectedCountry?.code || 'ZA';
-        this.improvements = this.improvementService.calculateImprovements(this.grades, this.career, countryCode);
+        this.improvements = await this.improvementService.calculateImprovements(this.grades, this.career, countryCode);
       }
       this.updateOrCreateChart();
     }, 0);
   }
 
-  ngOnChanges(changes: SimpleChanges) {
+  async ngOnChanges(changes: SimpleChanges) {
     if (this.grades && this.career) {
       const countryCode = this.selectedCountry?.code || 'ZA';
-      this.improvements = this.improvementService.calculateImprovements(this.grades, this.career, countryCode);
-      this.loadAITips();
+      this.improvements = await this.improvementService.calculateImprovements(this.grades, this.career, countryCode);
       
       requestAnimationFrame(() => {
         setTimeout(() => {
@@ -53,7 +48,6 @@ export class ImprovementDisplayComponent implements OnChanges, AfterViewInit, On
       });
     } else {
       this.improvements = {};
-      this.aiTips = {};
       this.destroyChart();
     }
   }
@@ -89,82 +83,6 @@ export class ImprovementDisplayComponent implements OnChanges, AfterViewInit, On
     return !!this.grades && !!this.career && !this.hasImprovements();
   }
 
-  loadAITips() {
-    if (!this.hasImprovements() || !this.grades || !this.career) {
-      return;
-    }
-
-    Object.keys(this.improvements).forEach(subject => {
-      this.loadingTips[subject] = true;
-      const countryCode = this.selectedCountry?.code || 'ZA';
-      let currentGrade = 0;
-      let requiredGrade = 0;
-      
-      if (subject.includes(' OR ')) {
-        if (subject.includes('Mathematics') || subject.includes('Mathematical Literacy')) {
-          const mathGrade = this.grades!['Math'] || this.grades!['MathLiteracy'] || 0;
-          const mathLitGrade = this.grades!['MathLiteracy'] || this.grades!['Math'] || 0;
-          currentGrade = Math.max(mathGrade, mathLitGrade);
-          const mathReq = this.career!.minGrades['Math'] || 0;
-          const mathLitReq = this.career!.minGrades['MathLiteracy'] || 0;
-          requiredGrade = Math.min(mathReq, mathLitReq);
-        } else if (subject.includes('English')) {
-          const engGrade = this.grades!['English'] || this.grades!['EnglishFAL'] || 0;
-          const engFALGrade = this.grades!['EnglishFAL'] || this.grades!['English'] || 0;
-          currentGrade = Math.max(engGrade, engFALGrade);
-          const engReq = this.career!.minGrades['English'] || 0;
-          const engFALReq = this.career!.minGrades['EnglishFAL'] || 0;
-          requiredGrade = Math.min(engReq, engFALReq);
-        }
-      } else {
-        currentGrade = this.grades![subject] || 0;
-        requiredGrade = this.career!.minGrades[subject] || 0;
-      }
-      
-      const improvementNeeded = this.improvements[subject];
-
-      this.aiTipsService.generateTip(
-        subject,
-        currentGrade,
-        requiredGrade,
-        improvementNeeded,
-        this.career!.name
-      ).subscribe({
-        next: (tip) => {
-          this.aiTips[subject] = {
-            subject,
-            improvement: improvementNeeded,
-            tip,
-            loading: false,
-            error: false
-          };
-          this.loadingTips[subject] = false;
-        },
-        error: () => {
-          this.aiTips[subject] = {
-            subject,
-            improvement: improvementNeeded,
-            tip: '',
-            loading: false,
-            error: true
-          };
-          this.loadingTips[subject] = false;
-        }
-      });
-    });
-  }
-
-  getTipForSubject(subject: string): string {
-    return this.aiTips[subject]?.tip || '';
-  }
-
-  isLoadingTip(subject: string): boolean {
-    return this.loadingTips[subject] === true;
-  }
-
-  hasTip(subject: string): boolean {
-    return !!this.aiTips[subject]?.tip;
-  }
 
   private createImprovementChart() {
     if (!this.chartCanvas || !this.hasImprovements()) return;

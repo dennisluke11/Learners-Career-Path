@@ -1,16 +1,21 @@
-<div *ngIf="grades && Object.keys(grades).length > 0" class="eligible-careers-container">
-  <h2>🎓 Courses & Careers You Qualify For</h2>
+<section *ngIf="grades && Object.keys(grades).length > 0" class="eligible-careers-container" aria-labelledby="eligible-careers-heading">
+  <h2 id="eligible-careers-heading">
+    <span aria-hidden="true">🎓</span>
+    <span class="sr-only">Courses and careers: </span>
+    Courses & Careers You Qualify For
+  </h2>
   <p class="subtitle">Based on your current grades, here are the opportunities available to you</p>
 
-  <div *ngIf="loading" class="loading">
+  <div *ngIf="loading" class="loading" role="status" aria-live="polite" aria-busy="true">
     <p>Checking your eligibility...</p>
   </div>
 
   <div *ngIf="!loading">
     <!-- Fully Qualified Careers -->
-    <div *ngIf="qualifiedCareers.length > 0" class="careers-section qualified-section">
-      <h3 class="section-title">
-        <span class="icon">✅</span>
+    <div *ngIf="qualifiedCareers.length > 0" class="careers-section qualified-section" aria-labelledby="qualified-heading">
+      <h3 id="qualified-heading" class="section-title">
+        <span class="icon" aria-hidden="true">✅</span>
+        <span class="sr-only">Fully qualified section: </span>
         Fully Qualified ({{ qualifiedCareers.length }})
       </h3>
       <p class="section-description">Congratulations! You meet all requirements for these careers.</p>
@@ -39,7 +44,11 @@
               <div *ngIf="!isMarketDataLoading(eligible.career.name) && getMarketData(eligible.career.name)" class="market-info">
                 <!-- Total Job Count (Last 12 Months) -->
                 <div *ngIf="getMarketData(eligible.career.name)?.totalJobCount" class="job-count">
-                  <span class="market-label">📊 Total Jobs (Last 12 Months):</span>
+                  <span class="market-label">
+                    <span aria-hidden="true">📊</span>
+                    <span class="sr-only">Market data: </span>
+                    Total Jobs (Last 12 Months):
+                  </span>
                   <span class="count-value">{{ formatNumber(getMarketData(eligible.career.name)!.totalJobCount!) }}</span>
                   <div *ngIf="getMarketData(eligible.career.name)?.jobCountsBySite && getMarketData(eligible.career.name)!.jobCountsBySite!.length > 0" class="job-counts-by-site">
                     <span class="sites-label">From:</span>
@@ -48,25 +57,16 @@
                     </span>
                   </div>
                 </div>
-                
-                <!-- Salary Ranges by Level -->
-                <div *ngIf="getMarketData(eligible.career.name)?.salaryRangesByLevel" class="salary-ranges">
-                  <span class="market-label">💰 Salary Ranges:</span>
-                  <div class="salary-levels">
-                    <div class="salary-level">
-                      <span class="level-label">Junior:</span>
-                      <span class="salary-value">{{ formatSalaryRange(getMarketData(eligible.career.name)!.salaryRangesByLevel!.junior) }}</span>
-                    </div>
-                    <div class="salary-level">
-                      <span class="level-label">Mid:</span>
-                      <span class="salary-value">{{ formatSalaryRange(getMarketData(eligible.career.name)!.salaryRangesByLevel!.mid) }}</span>
-                    </div>
-                    <div class="salary-level">
-                      <span class="level-label">Senior:</span>
-                      <span class="salary-value">{{ formatSalaryRange(getMarketData(eligible.career.name)!.salaryRangesByLevel!.senior) }}</span>
-                    </div>
-                  </div>
-                </div>
+              </div>
+              
+              <!-- University Button -->
+              <div class="university-button-section" *ngIf="hasUniversitySources(eligible.career)">
+                <button 
+                  class="view-universities-btn"
+                  (click)="openUniversityDialog(eligible)"
+                  [attr.aria-label]="'View universities offering ' + eligible.career.name">
+                  <span aria-hidden="true">🏛️</span> View Universities
+                </button>
               </div>
             </div>
           </div>
@@ -75,9 +75,10 @@
     </div>
 
     <!-- Close to Qualifying - Grouped by Curriculum -->
-    <div *ngIf="closeCareers.length > 0" class="careers-section close-section">
-      <h3 class="section-title">
-        <span class="icon">🎯</span>
+    <div *ngIf="closeCareers.length > 0" class="careers-section close-section" aria-labelledby="close-heading">
+      <h3 id="close-heading" class="section-title">
+        <span class="icon" aria-hidden="true">🎯</span>
+        <span class="sr-only">Close to qualifying section: </span>
         Close to Qualifying ({{ closeCareers.length }})
       </h3>
       <p class="section-description">You're almost there! These careers are within reach with a little improvement, organized by university curriculum.</p>
@@ -101,34 +102,44 @@
                 <span class="score-value">{{ eligible.matchScore }}%</span>
               </div>
               
-              <div *ngIf="eligible.closeSubjects.length > 0" class="close-subjects">
+              <div *ngIf="getEnteredSubjects(eligible.closeSubjects, eligible.career.name, 'close').length > 0" class="close-subjects">
                 <p class="info-label">Almost there in:</p>
                 <ul class="subject-list">
-                  <li *ngFor="let subject of eligible.closeSubjects">
-                    <div class="subject-improvement">
-                      <span class="subject-name">{{ subject }}</span>
-                      <span *ngIf="getImprovementDetails(eligible, subject)" class="improvement-details">
-                        <span class="current-grade">Current: {{ getImprovementDetails(eligible, subject)?.current }}%</span>
-                        <span class="required-grade">Required: {{ getImprovementDetails(eligible, subject)?.required }}%</span>
-                        <span class="improvement-needed">Need: +{{ getImprovementDetails(eligible, subject)?.improvement }}%</span>
-                      </span>
-                    </div>
+                  <li *ngFor="let subject of getEnteredSubjects(eligible.closeSubjects, eligible.career.name, 'close')">
+                    <ng-container *ngIf="getImprovementDetails(eligible, subject) as details; else noDetails">
+                      <ng-container *ngIf="details.current !== undefined && details.current !== null">
+                        <div class="subject-improvement">
+                          <span class="subject-name">{{ subject }}</span>
+                          <span class="improvement-details">
+                            <span class="current-grade">Current: {{ details.current }}%</span>
+                            <span class="required-grade">Required: {{ details.required }}%</span>
+                            <span class="improvement-needed">Need: +{{ details.improvement }}%</span>
+                          </span>
+                        </div>
+                      </ng-container>
+                    </ng-container>
+                    <ng-template #noDetails></ng-template>
                   </li>
                 </ul>
               </div>
               
-              <div *ngIf="eligible.missingSubjects.length > 0" class="missing-subjects">
+              <div *ngIf="getEnteredSubjects(eligible.missingSubjects, eligible.career.name, 'missing').length > 0" class="missing-subjects">
                 <p class="info-label">Need improvement in:</p>
                 <ul class="subject-list">
-                  <li *ngFor="let subject of eligible.missingSubjects">
-                    <div class="subject-improvement">
-                      <span class="subject-name">{{ subject }}</span>
-                      <span *ngIf="getImprovementDetails(eligible, subject)" class="improvement-details">
-                        <span class="current-grade">Current: {{ getImprovementDetails(eligible, subject)?.current }}%</span>
-                        <span class="required-grade">Required: {{ getImprovementDetails(eligible, subject)?.required }}%</span>
-                        <span class="improvement-needed">Need: +{{ getImprovementDetails(eligible, subject)?.improvement }}%</span>
-                      </span>
-                    </div>
+                  <li *ngFor="let subject of getEnteredSubjects(eligible.missingSubjects, eligible.career.name, 'missing')">
+                    <ng-container *ngIf="getImprovementDetails(eligible, subject) as details; else noDetails">
+                      <ng-container *ngIf="details.current !== undefined && details.current !== null">
+                        <div class="subject-improvement">
+                          <span class="subject-name">{{ subject }}</span>
+                          <span class="improvement-details">
+                            <span class="current-grade">Current: {{ details.current }}%</span>
+                            <span class="required-grade">Required: {{ details.required }}%</span>
+                            <span class="improvement-needed">Need: +{{ details.improvement }}%</span>
+                          </span>
+                        </div>
+                      </ng-container>
+                    </ng-container>
+                    <ng-template #noDetails></ng-template>
                   </li>
                 </ul>
               </div>
@@ -142,7 +153,11 @@
                 <div *ngIf="!isMarketDataLoading(eligible.career.name) && getMarketData(eligible.career.name)" class="market-info">
                   <!-- Total Job Count (Last 12 Months) -->
                   <div *ngIf="getMarketData(eligible.career.name)?.totalJobCount" class="job-count">
-                    <span class="market-label">📊 Total Jobs (Last 12 Months):</span>
+                    <span class="market-label">
+                    <span aria-hidden="true">📊</span>
+                    <span class="sr-only">Market data: </span>
+                    Total Jobs (Last 12 Months):
+                  </span>
                     <span class="count-value">{{ formatNumber(getMarketData(eligible.career.name)!.totalJobCount!) }}</span>
                     <div *ngIf="getMarketData(eligible.career.name)?.jobCountsBySite && getMarketData(eligible.career.name)!.jobCountsBySite!.length > 0" class="job-counts-by-site">
                       <span class="sites-label">From:</span>
@@ -151,26 +166,17 @@
                       </span>
                     </div>
                   </div>
-                  
-                  <!-- Salary Ranges by Level -->
-                  <div *ngIf="getMarketData(eligible.career.name)?.salaryRangesByLevel" class="salary-ranges">
-                    <span class="market-label">💰 Salary Ranges:</span>
-                    <div class="salary-levels">
-                      <div class="salary-level">
-                        <span class="level-label">Junior:</span>
-                        <span class="salary-value">{{ formatSalaryRange(getMarketData(eligible.career.name)!.salaryRangesByLevel!.junior) }}</span>
-                      </div>
-                      <div class="salary-level">
-                        <span class="level-label">Mid:</span>
-                        <span class="salary-value">{{ formatSalaryRange(getMarketData(eligible.career.name)!.salaryRangesByLevel!.mid) }}</span>
-                      </div>
-                      <div class="salary-level">
-                        <span class="level-label">Senior:</span>
-                        <span class="salary-value">{{ formatSalaryRange(getMarketData(eligible.career.name)!.salaryRangesByLevel!.senior) }}</span>
-                      </div>
-                    </div>
-                  </div>
                 </div>
+              </div>
+              
+              <!-- University Button -->
+              <div class="university-button-section" *ngIf="hasUniversitySources(eligible.career)">
+                <button 
+                  class="view-universities-btn"
+                  (click)="openUniversityDialog(eligible)"
+                  [attr.aria-label]="'View universities offering ' + eligible.career.name">
+                  <span aria-hidden="true">🏛️</span> View Universities
+                </button>
               </div>
             </div>
           </div>
@@ -179,22 +185,32 @@
     </div>
 
     <!-- No Qualifications -->
-    <div *ngIf="qualifiedCareers.length === 0 && closeCareers.length === 0" class="no-qualifications">
+    <div *ngIf="qualifiedCareers.length === 0 && closeCareers.length === 0" class="no-qualifications" role="status" aria-live="polite">
       <div class="empty-state">
-        <span class="icon">📚</span>
+        <span class="icon" aria-hidden="true">📚</span>
         <h3>Keep Working!</h3>
         <p>Based on your current grades, you haven't qualified for any careers yet. But don't worry!</p>
         <p class="encouragement">Select a desired career above to see exactly what you need to improve.</p>
       </div>
     </div>
   </div>
-</div>
+</section>
 
-<div *ngIf="!grades || Object.keys(grades).length === 0" class="no-grades">
+<div *ngIf="!grades || Object.keys(grades).length === 0" class="no-grades" role="status" aria-live="polite">
   <div class="empty-state">
-    <span class="icon">📝</span>
     <h3>Enter Your Grades</h3>
     <p>Enter your grades above to see which courses and careers you qualify for!</p>
   </div>
 </div>
+
+<!-- University Dialog -->
+<app-university-dialog
+  *ngIf="selectedCareerForDialog && selectedQualificationLevel"
+  [career]="selectedCareerForDialog"
+  [qualificationLevel]="selectedQualificationLevel"
+  [grades]="grades"
+  [countryCode]="selectedCountry?.code || 'ZA'"
+  [isOpen]="showUniversityDialog"
+  (closeDialog)="closeUniversityDialog()">
+</app-university-dialog>
 

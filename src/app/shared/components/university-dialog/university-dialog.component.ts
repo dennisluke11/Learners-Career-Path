@@ -1,7 +1,8 @@
-import { Component, Input, Output, EventEmitter, OnInit } from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnInit, OnChanges, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Career, QualificationLevel, RequirementSource } from '../../models/career.model';
+import { Career, QualificationLevel } from '../../models/career.model';
 import { Grades } from '../../models/grades.model';
+import { EligibilityService } from '../../../features/eligibility/services/eligibility.service';
 
 export interface UniversityEligibility {
   institution: string;
@@ -12,6 +13,17 @@ export interface UniversityEligibility {
   apsDifference: number;
   notes?: string;
   verifiedDate?: string;
+  qualificationLevel?: QualificationLevel;
+  levelStatus?: 'qualified' | 'close' | 'not-eligible';
+}
+
+export interface QualificationLevelStatus {
+  level: 'Degree' | 'BTech' | 'Diploma' | 'Certificate';
+  nqfLevel?: number;
+  status: 'qualified' | 'close' | 'not-eligible';
+  apsStatus: 'qualified' | 'close' | 'not-eligible';
+  subjectStatus: 'qualified' | 'close' | 'not-eligible';
+  overallStatus: 'qualified' | 'close' | 'not-eligible';
 }
 
 @Component({
@@ -21,7 +33,7 @@ export interface UniversityEligibility {
   templateUrl: './university-dialog.component.html',
   styleUrls: ['./university-dialog.component.scss']
 })
-export class UniversityDialogComponent implements OnInit {
+export class UniversityDialogComponent implements OnInit, OnChanges {
   @Input() career: Career | null = null;
   @Input() qualificationLevel: QualificationLevel | null = null;
   @Input() grades: Grades | null = null;
@@ -31,14 +43,17 @@ export class UniversityDialogComponent implements OnInit {
 
   universities: UniversityEligibility[] = [];
   userAps: number = 0;
+  qualificationLevelsStatus: QualificationLevelStatus[] = [];
 
-  ngOnInit() {
-    this.calculateEligibility();
+  constructor(private eligibilityService: EligibilityService) {}
+
+  async ngOnInit() {
+    await this.calculateEligibility();
   }
 
-  ngOnChanges() {
+  async ngOnChanges(changes: SimpleChanges) {
     if (this.isOpen) {
-      this.calculateEligibility();
+      await this.calculateEligibility();
     }
   }
 
@@ -95,14 +110,88 @@ export class UniversityDialogComponent implements OnInit {
   }
 
   /**
+   * Check if learner qualifies for a qualification level based on subject requirements
+   */
+  async checkSubjectRequirements(qualLevel: QualificationLevel): Promise<'qualified' | 'close' | 'not-eligible'> {
+    if (!this.grades || !qualLevel.minGrades) return 'not-eligible';
+    
+    // Create a temporary career object to use with eligibility service
+    const tempCareer: Career = {
+      name: this.career?.name || '',
+      minGrades: qualLevel.minGrades
+    };
+    
+    const result = await this.eligibilityService.checkEligibility(this.grades, tempCareer, this.countryCode);
+    
+    if (result.status === 'qualified') return 'qualified';
+    if (result.status === 'close') return 'close';
+    return 'not-eligible';
+  }
+
+  /**
+   * Check APS requirements for a qualification level
+   */
+  checkApsRequirements(apsRequired: number): 'qualified' | 'close' | 'not-eligible' {
+    const apsDifference = this.userAps - apsRequired;
+    if (apsDifference >= 0) return 'qualified';
+    if (apsDifference >= -3) return 'close';
+    return 'not-eligible';
+  }
+
+  /**
+   * Calculate qualification level statuses for all levels
+   */
+  async calculateQualificationLevelsStatus() {
+    this.qualificationLevelsStatus = [];
+    
+    if (!this.career || !this.grades) return;
+    
+    const qualLevels = this.career.qualificationLevels?.[this.countryCode] || [];
+    
+    for (const level of qualLevels) {
+      const subjectStatus = await this.checkSubjectRequirements(level);
+      const apsRequired = level.aps || 0;
+      const apsStatus = apsRequired > 0 ? this.checkApsRequirements(apsRequired) : 'qualified';
+      
+      // Overall status: must qualify for both subjects AND APS
+      let overallStatus: 'qualified' | 'close' | 'not-eligible';
+      if (subjectStatus === 'qualified' && apsStatus === 'qualified') {
+        overallStatus = 'qualified';
+      } else if (subjectStatus === 'qualified' || apsStatus === 'qualified' || 
+                 subjectStatus === 'close' || apsStatus === 'close') {
+        overallStatus = 'close';
+      } else {
+        overallStatus = 'not-eligible';
+      }
+      
+      this.qualificationLevelsStatus.push({
+        level: level.level,
+        nqfLevel: level.nqfLevel,
+        status: overallStatus,
+        apsStatus,
+        subjectStatus,
+        overallStatus
+      });
+    }
+    
+    // Sort by level priority: Degree, BTech, Diploma, Certificate
+    const levelOrder = { 'Degree': 0, 'BTech': 1, 'Diploma': 2, 'Certificate': 3 };
+    this.qualificationLevelsStatus.sort((a, b) => levelOrder[a.level] - levelOrder[b.level]);
+  }
+
+  /**
    * Calculate eligibility for each university
    */
-  calculateEligibility() {
+  async calculateEligibility() {
     this.universities = [];
+    this.qualificationLevelsStatus = [];
     
     if (!this.qualificationLevel || !this.grades) return;
     
     this.userAps = this.calculateAps(this.grades);
+    
+    // Calculate qualification levels status
+    await this.calculateQualificationLevelsStatus();
     
     const sources = this.qualificationLevel.sources;
     if (!sources) {
@@ -111,7 +200,13 @@ export class UniversityDialogComponent implements OnInit {
     }
     
     // Handle both single source (legacy) and array of sources
-    const sourceArray: RequirementSource[] = Array.isArray(sources) ? sources : [sources];
+    const sourceArray: Array<{
+      url?: string;
+      institution?: string;
+      verifiedDate?: string;
+      notes?: string;
+      aps?: number;
+    }> = Array.isArray(sources) ? sources : [sources];
     
     for (const source of sourceArray) {
       if (!source.institution) continue;
@@ -119,10 +214,16 @@ export class UniversityDialogComponent implements OnInit {
       const apsRequired = source.aps || this.qualificationLevel.aps || 0;
       const apsDifference = this.userAps - apsRequired;
       
+      // Check both APS and subject requirements
+      const apsStatus = this.checkApsRequirements(apsRequired);
+      const subjectStatus = await this.checkSubjectRequirements(this.qualificationLevel);
+      
+      // Overall status: must qualify for both subjects AND APS
       let status: 'qualified' | 'close' | 'not-eligible';
-      if (apsDifference >= 0) {
+      if (apsStatus === 'qualified' && subjectStatus === 'qualified') {
         status = 'qualified';
-      } else if (apsDifference >= -3) {
+      } else if (apsStatus === 'qualified' || subjectStatus === 'qualified' || 
+                 apsStatus === 'close' || subjectStatus === 'close') {
         status = 'close';
       } else {
         status = 'not-eligible';
@@ -136,7 +237,9 @@ export class UniversityDialogComponent implements OnInit {
         status,
         apsDifference,
         notes: source.notes,
-        verifiedDate: source.verifiedDate
+        verifiedDate: source.verifiedDate,
+        qualificationLevel: this.qualificationLevel,
+        levelStatus: status
       });
     }
     

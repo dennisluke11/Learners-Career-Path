@@ -6,6 +6,7 @@ import { environment } from '../../../environments/environment';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { GeminiRateLimitService } from './gemini-rate-limit.service';
 import { FirebaseService } from './firebase.service';
+import { LoggingService } from './logging.service';
 
 export interface JobOpening {
   source: string;
@@ -63,7 +64,8 @@ export class CareerMarketService {
   constructor(
     private http: HttpClient,
     private rateLimitService: GeminiRateLimitService,
-    private firebaseService: FirebaseService
+    private firebaseService: FirebaseService,
+    private loggingService: LoggingService
   ) {
     this.useFirebaseFunctions = environment.useFirebaseFunctions || false;
     
@@ -71,7 +73,7 @@ export class CareerMarketService {
       try {
         this.genAI = new GoogleGenerativeAI(environment.geminiApiKey);
       } catch (error) {
-        console.error('Failed to initialize Gemini AI:', error);
+        this.loggingService.error('Failed to initialize Gemini AI', error);
       }
     }
   }
@@ -125,21 +127,16 @@ export class CareerMarketService {
           const cacheKey = `${careerName}_${countryCode || 'default'}`;
           this.cache[cacheKey] = marketData;
           
-          console.log(`✅ Loaded market data for ${careerName} from Firestore`);
+          this.loggingService.debug(`Loaded market data for ${careerName} from Firestore`);
           observer.next(marketData);
           observer.complete();
         } else {
-          console.warn(`⚠️ Market data not found in Firestore for ${careerName}, trying AI...`);
-          if (environment.geminiApiKey && this.genAI) {
-            const prompt = this.buildMarketDataPrompt(careerName, countryCode);
-            this.listAndUseAvailableModel(prompt, careerName, countryCode, observer);
-          } else {
-            observer.error(new Error(`Market data not found for ${careerName} in Firestore. Please run populate-market-data-firestore.js`));
-            observer.complete();
-          }
+          this.loggingService.warn(`Market data not found in Firestore for ${careerName}`);
+          observer.error(new Error(`Market data not found for ${careerName} in Firestore. Please run populate-market-data-firestore-ai.js to populate verified data.`));
+          observer.complete();
         }
       }).catch((error: any) => {
-        console.error('Error fetching market data from Firestore:', error);
+        this.loggingService.error('Error fetching market data from Firestore', error);
         observer.error(error);
         observer.complete();
       });
@@ -163,7 +160,7 @@ export class CareerMarketService {
     observer: any
   ): void {
     if (modelNames.length === 0) {
-      console.error('All Gemini models failed');
+      this.loggingService.error('All Gemini models failed');
       observer.error(new Error(`Failed to generate market data for ${careerName}. Please ensure data is in Firestore or AI is configured.`));
       observer.complete();
       return;
@@ -171,9 +168,8 @@ export class CareerMarketService {
 
     const rateLimitCheck = this.rateLimitService.canMakeRequest();
     if (!rateLimitCheck.allowed) {
-      console.warn(`⚠️ Rate limit: ${rateLimitCheck.reason}`);
       const stats = this.rateLimitService.getUsageStats();
-      console.log(`📊 Gemini API Usage: ${stats.requestsToday}/${stats.dailyLimit} today, ${stats.remainingToday} remaining`);
+      this.loggingService.warn(`Rate limit: ${rateLimitCheck.reason}. Usage: ${stats.requestsToday}/${stats.dailyLimit} today, ${stats.remainingToday} remaining`);
       observer.error(new Error(`Rate limit exceeded. Market data not available for ${careerName}. Please try again later or ensure data is in Firestore.`));
         observer.complete();
       return;
@@ -221,7 +217,7 @@ export class CareerMarketService {
 
           this.rateLimitService.recordRequest();
           const stats = this.rateLimitService.getUsageStats();
-          console.log(`✅ Generated market data using ${modelName}. Usage: ${stats.requestsToday}/${stats.dailyLimit} today`);
+          this.loggingService.debug(`Generated market data using ${modelName}. Usage: ${stats.requestsToday}/${stats.dailyLimit} today`);
 
           this.cache[careerName] = marketData;
           observer.next(marketData);
@@ -231,7 +227,7 @@ export class CareerMarketService {
         }
       }).catch((error: any) => {
         if (error?.message?.includes('429') || error?.message?.includes('rate limit') || error?.message?.includes('quota')) {
-          console.warn(`⚠️ Rate limit hit on ${modelName}.`);
+          this.loggingService.warn(`Rate limit hit on ${modelName}`);
           observer.error(new Error(`Rate limit exceeded. Market data not available for ${careerName}. Please try again later or ensure data is in Firestore.`));
           observer.complete();
           return;
@@ -312,7 +308,7 @@ Provide realistic 2024-2025 data. Job counts from major sites (LinkedIn, Indeed,
         return data;
       }),
       catchError(error => {
-        console.error('Error fetching market data from Firebase Functions:', error);
+        this.loggingService.error('Error fetching market data from Firebase Functions', error);
         return new Observable<CareerMarketData>(observer => {
           observer.error(new Error(`Failed to fetch market data for ${careerName}. Please ensure data is in Firestore.`));
             observer.complete();

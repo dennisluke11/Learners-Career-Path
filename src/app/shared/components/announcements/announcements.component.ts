@@ -5,6 +5,8 @@ import { Country } from '../../models/country.model';
 import { Career } from '../../models/career.model';
 import { GradeLevel } from '../../models/grade-level.model';
 import { AnalyticsService } from '../../../core/services/analytics.service';
+import { AnnouncementDialogComponent } from '../announcement-dialog/announcement-dialog.component';
+import { LoggingService } from '../../../core/services/logging.service';
 
 @Component({
   selector: 'app-announcements',
@@ -18,11 +20,13 @@ export class AnnouncementsComponent implements OnInit, OnChanges {
 
   announcements = signal<Announcement[]>([]);
   isLoading = signal<boolean>(false);
-  expandedAnnouncements = signal<Set<string>>(new Set());
+  selectedAnnouncement = signal<Announcement | null>(null);
+  showDialog = signal<boolean>(false);
 
   constructor(
     private announcementsService: AnnouncementsService,
-    private analyticsService: AnalyticsService
+    private analyticsService: AnalyticsService,
+    private loggingService: LoggingService
   ) {}
 
   ngOnInit(): void {
@@ -42,12 +46,15 @@ export class AnnouncementsComponent implements OnInit, OnChanges {
     const career = this.selectedCareer?.name;
     const gradeLevel = this.selectedGradeLevel?.level;
 
+    this.loggingService.debug('Loading announcements', { country, career, gradeLevel });
+
     const announcements = await this.announcementsService.getAnnouncements(
       country,
       career,
       gradeLevel
     );
 
+    this.loggingService.debug(`Received ${announcements.length} announcements`);
     this.announcements.set(announcements);
     this.isLoading.set(false);
 
@@ -66,44 +73,24 @@ export class AnnouncementsComponent implements OnInit, OnChanges {
     });
   }
 
-  toggleExpand(announcementId: string): void {
-    const expanded = this.expandedAnnouncements();
-    if (expanded.has(announcementId)) {
-      expanded.delete(announcementId);
-    } else {
-      expanded.add(announcementId);
-    }
-    this.expandedAnnouncements.set(new Set(expanded));
+  openDialog(announcement: Announcement): void {
+    this.selectedAnnouncement.set(announcement);
+    this.showDialog.set(true);
   }
 
-  isExpanded(announcementId: string): boolean {
-    return this.expandedAnnouncements().has(announcementId);
+  closeDialog(): void {
+    this.showDialog.set(false);
+    this.selectedAnnouncement.set(null);
   }
 
-  async onActionClick(announcement: Announcement): Promise<void> {
-    if (!announcement.id || !announcement.actionButton) {
-      return;
-    }
-
-    // Track click
-    await this.announcementsService.trackClick(announcement.id);
-    
-    this.analyticsService.trackClick('announcement_clicked', announcement.id, 'button', announcement.actionButton.text, {
-      componentName: 'AnnouncementsComponent',
-      announcementId: announcement.id,
-      announcementType: announcement.type,
-      actionUrl: announcement.actionButton.url,
-      country: this.selectedCountry?.code,
-      career: this.selectedCareer?.name
-    });
-
-    // Open URL
-    if (announcement.actionButton.type === 'external') {
-      window.open(announcement.actionButton.url, '_blank', 'noopener,noreferrer');
-    } else {
-      window.location.href = announcement.actionButton.url;
-    }
+  getVisibleAnnouncements(): Announcement[] {
+    return this.announcements().slice(0, 5);
   }
+
+  hasMoreAnnouncements(): boolean {
+    return this.announcements().length > 5;
+  }
+
 
   getTypeIcon(type: string): string {
     const icons: { [key: string]: string } = {
@@ -129,6 +116,7 @@ export class AnnouncementsComponent implements OnInit, OnChanges {
     return labels[type] || 'Announcement';
   }
 }
+
 
 
 

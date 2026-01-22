@@ -1,15 +1,15 @@
-<div class="career-selector-container">
-  <h2>Select Your Desired Career</h2>
+<section class="career-selector-container" aria-labelledby="career-heading">
+  <h2 id="career-heading">Select Your Desired Career</h2>
   
-  <div *ngIf="loading" class="loading-message">
+  <div *ngIf="loading" class="loading-message" role="status" aria-live="polite" aria-busy="true">
     <p>Loading careers from database...</p>
   </div>
   
-  <div *ngIf="error" class="error-message">
+  <div *ngIf="error" class="error-message" role="alert" aria-live="assertive">
     <p>{{ error }}</p>
   </div>
   
-  <div *ngIf="!loading && !error" class="careers-info">
+  <div *ngIf="!loading && !error" class="careers-info" role="status" aria-live="polite">
     <p class="careers-count">{{ careers.length }} career{{ careers.length !== 1 ? 's' : '' }} available</p>
   </div>
   
@@ -17,7 +17,10 @@
     <select 
       (change)="onSelectCareer($event)" 
       class="career-select"
-      [disabled]="loading || careers.length === 0">
+      [disabled]="loading || careers.length === 0"
+      aria-label="Select your desired career"
+      aria-required="true"
+      [attr.aria-busy]="loading">
       <option value="" disabled selected>
         {{ loading ? 'Loading...' : careers.length === 0 ? 'No careers available' : 'Select Desired Career' }}
       </option>
@@ -29,8 +32,8 @@
   
   <div *ngIf="selectedCareer" class="selected-career-info">
     <h3>Selected: {{selectedCareer.name}}</h3>
-    <div *ngIf="selectedCountry" class="country-badge">
-      <span>{{selectedCountry.flag}}</span>
+    <div *ngIf="selectedCountry" class="country-badge" aria-label="Country context">
+      <span aria-hidden="true">{{selectedCountry.flag}}</span>
       <span>Requirements for {{selectedCountry.name}}</span>
     </div>
     <div class="requirements">
@@ -47,10 +50,10 @@
         </li>
       </ul>
       
-      <!-- Show note for either/or subjects -->
-      <div *ngIf="selectedCountry?.code === 'ZA' && (selectedCareer.minGrades?.['Math'] !== undefined || selectedCareer.minGrades?.['MathLiteracy'] !== undefined || selectedCareer.minGrades?.['English'] !== undefined || selectedCareer.minGrades?.['EnglishFAL'] !== undefined)" class="either-or-info">
+      <!-- Show note for either/or subjects (backend-driven) -->
+      <div *ngIf="hasEitherOrSubjects()" class="either-or-info">
         <p class="info-note">
-          <strong>Note:</strong> For South Africa, you only need to meet the requirement for <strong>one</strong> of the subjects in each "OR" pair (e.g., Mathematics OR Mathematical Literacy).
+          <strong>Note:</strong> You only need to meet the requirement for <strong>one</strong> of the subjects in each "OR" pair.
         </p>
       </div>
       
@@ -71,9 +74,31 @@
             <span class="aps-value">{{level.aps}}</span>
           </div>
           <p *ngIf="level.notes" class="level-notes">{{level.notes}}</p>
+          
+          <!-- University Dialog Button - Bottom Right -->
+          <div class="qual-level-footer">
+            <button 
+              *ngIf="hasUniversitySources(level)"
+              class="view-universities-btn"
+              (click)="openUniversityDialog(level)"
+              [attr.aria-label]="'View universities offering ' + (selectedCareer ? selectedCareer.name : '') + ' at ' + level.level + ' level'">
+              <span aria-hidden="true">🏛️</span> View Universities
+            </button>
+          </div>
         </div>
       </div>
     </div>
   </div>
-</div>
+</section>
+
+<!-- University Dialog -->
+<app-university-dialog
+  *ngIf="selectedCareer && selectedQualificationLevel"
+  [career]="selectedCareer"
+  [qualificationLevel]="selectedQualificationLevel"
+  [grades]="grades"
+  [countryCode]="selectedCountry?.code || 'ZA'"
+  [isOpen]="showUniversityDialog"
+  (closeDialog)="closeUniversityDialog()">
+</app-university-dialog>
 

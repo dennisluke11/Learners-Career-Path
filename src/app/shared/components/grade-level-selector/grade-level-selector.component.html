@@ -1,23 +1,30 @@
-<div class="grade-level-selector-container">
-  <h2>Select Your Grade Level</h2>
-  <div *ngIf="selectedCountry" class="country-context">
-    <span>{{selectedCountry.flag}}</span>
+<section class="grade-level-selector-container" aria-labelledby="grade-level-heading">
+  <h2 id="grade-level-heading">Select Your Grade Level</h2>
+  <div *ngIf="selectedCountry" class="country-context" aria-label="Current country context">
+    <span aria-hidden="true">{{selectedCountry.flag}}</span>
     <span>{{selectedCountry.name}} - {{gradeSystem}} System</span>
   </div>
   <div class="select-wrapper">
     <select 
       (change)="onSelectGradeLevel($event)" 
       class="grade-level-select"
-      [value]="selectedGradeLevel?.level || ''">
+      [value]="selectedGradeLevel?.level || ''"
+      aria-label="Select your grade level"
+      aria-required="true"
+      [attr.aria-disabled]="!selectedCountry">
       <option value="" disabled>Select {{gradeSystem}} Level</option>
       <option *ngFor="let gradeLevel of gradeLevels" [value]="gradeLevel.level">
         {{gradeLevel.displayName}}
       </option>
     </select>
   </div>
-  <div *ngIf="selectedGradeLevel" class="selected-grade-info">
-    <p>📚 You're in <strong>{{selectedGradeLevel.displayName}}</strong></p>
+  <div *ngIf="selectedGradeLevel" class="selected-grade-info" role="status" aria-live="polite">
+    <p>
+      <span aria-hidden="true">📚</span>
+      <span class="sr-only">Information: </span>
+      You're in <strong>{{selectedGradeLevel.displayName}}</strong>
+    </p>
     <p class="info-text">Career requirements will be tailored for your level</p>
   </div>
-</div>
+</section>
 

@@ -182,3 +182,4 @@ console.log(`   Met: ${result.metRequirements}/${result.totalRequirements} requi
 console.log(`   Missing: ${result.missingSubjects.length > 0 ? result.missingSubjects.join(', ') : 'None'}`);
 console.log(`   Close: ${result.closeSubjects.length > 0 ? result.closeSubjects.join(', ') : 'None'}`);
 
+

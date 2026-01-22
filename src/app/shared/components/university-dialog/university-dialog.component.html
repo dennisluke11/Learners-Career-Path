@@ -23,6 +23,47 @@
       </div>
     </div>
 
+    <!-- Qualification Levels Status -->
+    <div class="qualification-levels-summary" *ngIf="qualificationLevelsStatus.length > 0">
+      <h4 class="summary-title">Your Qualification Status</h4>
+      <div class="levels-grid">
+        <div 
+          *ngFor="let levelStatus of qualificationLevelsStatus" 
+          class="level-status-card"
+          [class.qualified]="levelStatus.overallStatus === 'qualified'"
+          [class.close]="levelStatus.overallStatus === 'close'"
+          [class.not-eligible]="levelStatus.overallStatus === 'not-eligible'">
+          <div class="level-header">
+            <span class="status-icon">{{ getStatusIcon(levelStatus.overallStatus) }}</span>
+            <div class="level-info">
+              <span class="level-name">{{ levelStatus.level }}</span>
+              <span class="nqf-level" *ngIf="levelStatus.nqfLevel">NQF {{ levelStatus.nqfLevel }}</span>
+            </div>
+          </div>
+          <div class="level-details">
+            <div class="detail-item">
+              <span class="detail-label">Subjects:</span>
+              <span class="detail-value" [class]="levelStatus.subjectStatus">
+                {{ getStatusLabel(levelStatus.subjectStatus) }}
+              </span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">APS:</span>
+              <span class="detail-value" [class]="levelStatus.apsStatus">
+                {{ getStatusLabel(levelStatus.apsStatus) }}
+              </span>
+            </div>
+            <div class="detail-item overall">
+              <span class="detail-label">Overall:</span>
+              <span class="detail-value overall-value" [class]="levelStatus.overallStatus">
+                {{ getStatusLabel(levelStatus.overallStatus) }}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- University List -->
     <div class="universities-list" *ngIf="universities.length > 0">
       <div 

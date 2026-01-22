@@ -3,6 +3,7 @@ import { FirebaseService } from './firebase.service';
 import { AnalyticsEvent, AnalyticsConfig } from '../../shared/models/analytics-event.model';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { getFirestore } from 'firebase/firestore';
+import { LoggingService } from './logging.service';
 
 @Injectable({ providedIn: 'root' })
 export class AnalyticsService {
@@ -17,7 +18,10 @@ export class AnalyticsService {
   private flushTimer: any = null;
   private sessionId: string = this.generateSessionId();
 
-  constructor(private firebaseService: FirebaseService) {
+  constructor(
+    private firebaseService: FirebaseService,
+    private loggingService: LoggingService
+  ) {
     // Load config from localStorage or environment
     this.loadConfig();
     
@@ -39,7 +43,7 @@ export class AnalyticsService {
         this.config = { ...this.config, ...JSON.parse(saved) };
       }
     } catch (error) {
-      console.warn('Failed to load analytics config:', error);
+      this.loggingService.warn('Failed to load analytics config', error);
     }
   }
 
@@ -201,10 +205,10 @@ export class AnalyticsService {
       // Handle permission errors gracefully - don't spam console
       if (error?.code === 'permission-denied' || error?.message?.includes('permissions')) {
         // Permission denied - clear queue to prevent infinite retries
-        console.warn(`⚠️ Analytics: Permission denied. Please check Firestore security rules. Discarding ${eventsToFlush.length} events.`);
+        this.loggingService.warn(`Analytics: Permission denied. Please check Firestore security rules. Discarding ${eventsToFlush.length} events.`);
         // Don't re-add to queue to avoid infinite retry loop
       } else {
-        console.error('❌ Error flushing analytics events:', error);
+        this.loggingService.error('Error flushing analytics events', error);
         // Re-add events to queue if flush failed (for transient errors)
         this.eventQueue.unshift(...eventsToFlush);
       }

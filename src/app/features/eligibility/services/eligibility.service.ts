@@ -2,6 +2,8 @@ import { Injectable } from '@angular/core';
 import { Grades } from '../../../shared/models/grades.model';
 import { Career } from '../../../shared/models/career.model';
 import { COUNTRY_SUBJECTS } from '../../../shared/models/subject.model';
+import { SubjectsService } from '../../../shared/services/subjects.service';
+import { EitherOrGroup } from '../../../shared/models/subject.model';
 
 export interface EligibleCareer {
   career: Career;
@@ -13,33 +15,28 @@ export interface EligibleCareer {
 
 @Injectable({ providedIn: 'root' })
 export class EligibilityService {
+  private eitherOrGroupsCache: { [countryCode: string]: EitherOrGroup[] } = {};
 
-  /**
-   * Normalize subject name - maps various formats to standard name
-   * Handles: display names, standard names, requirement names, aliases
-   */
+  constructor(private subjectsService: SubjectsService) {}
+
   private normalizeSubjectName(subjectName: string, countryCode: string): string {
     if (!subjectName) return subjectName;
 
     const countryData = COUNTRY_SUBJECTS[countryCode];
     if (!countryData) {
-      // Fallback mapping if country data not available
       return this.fallbackNormalize(subjectName);
     }
 
-    // Check subject aliases first
     if (countryData.subjectAliases) {
       const alias = countryData.subjectAliases[subjectName];
       if (alias) return alias;
     }
 
-    // Check if it's already a standard name (case-insensitive)
     const subject = countryData.subjects.find(s => 
       s.standardName.toLowerCase() === subjectName.toLowerCase()
     );
-    if (subject) return subject.standardName; // Return the correct case
+    if (subject) return subject.standardName;
 
-    // Check if it matches a display name (exact or case-insensitive)
     const subjectByDisplay = countryData.subjects.find(s => {
       const displayLower = s.displayName.toLowerCase();
       const nameLower = subjectName.toLowerCase();
@@ -47,39 +44,26 @@ export class EligibilityService {
     });
     if (subjectByDisplay) return subjectByDisplay.standardName;
 
-    // Try fallback mapping
     return this.fallbackNormalize(subjectName);
   }
 
-  /**
-   * Fallback normalization for common subject name variations
-   */
   private fallbackNormalize(subjectName: string): string {
     const variations: { [key: string]: string } = {
-      // Mathematics
       'Mathematics': 'Math',
       'Maths': 'Math',
       'Mathematical Literacy': 'MathLiteracy',
       'Math Literacy': 'MathLiteracy',
-      
-      // English
       'English Home Language': 'English',
       'English (Home Language)': 'English',
       'English HL': 'English',
       'English First Additional Language': 'EnglishFAL',
       'English (First Additional Language)': 'EnglishFAL',
       'English FAL': 'EnglishFAL',
-      
-      // Life Orientation
       'Life Orientation': 'LifeOrientation',
-      
-      // Sciences
       'Physical Sciences': 'Physics',
       'Physical Science': 'Physics',
       'Life Sciences': 'Biology',
       'Life Science': 'Biology',
-      
-      // Technology
       'Computer Applications Technology': 'CAT',
       'Computer Applications Tech': 'CAT',
       'Information Technology': 'IT',
@@ -87,12 +71,10 @@ export class EligibilityService {
       'Computers': 'IT'
     };
 
-    // Try exact match
     if (variations[subjectName]) {
       return variations[subjectName];
     }
 
-    // Try case-insensitive match
     const nameLower = subjectName.toLowerCase();
     for (const [key, value] of Object.entries(variations)) {
       if (key.toLowerCase() === nameLower) {
@@ -100,7 +82,6 @@ export class EligibilityService {
       }
     }
 
-    // Handle standard names with different cases (math -> Math, english -> English, etc.)
     const standardNameMap: { [key: string]: string } = {
       'math': 'Math',
       'MATH': 'Math',
@@ -124,47 +105,34 @@ export class EligibilityService {
       return standardNameMap[nameLower];
     }
 
-    // Return as-is if no mapping found
     return subjectName;
   }
 
-  /**
-   * Get grade value for a subject, trying multiple name variations
-   * This handles the mismatch between requirement names and grade keys
-   */
-  private getGradeForSubject(grades: Grades, subjectName: string, countryCode: string): number {
-    // Try exact match first (requirement name might match grade key)
+  private async getGradeForSubject(grades: Grades, subjectName: string, countryCode: string): Promise<number> {
     if (grades[subjectName] !== undefined && grades[subjectName] !== null) {
       return grades[subjectName] || 0;
     }
 
-    // Normalize requirement name to standard name
     const normalized = this.normalizeSubjectName(subjectName, countryCode);
     
-    // Try normalized name
     if (grades[normalized] !== undefined && grades[normalized] !== null) {
       return grades[normalized] || 0;
     }
 
-    // Try case-insensitive match on grade keys (normalize grade keys too)
     const normalizedLower = normalized.toLowerCase();
     for (const gradeKey in grades) {
       if (grades[gradeKey] === undefined || grades[gradeKey] === null) continue;
       
-      // Normalize the grade key as well for comparison
       const normalizedGradeKey = this.normalizeSubjectName(gradeKey, countryCode);
       if (normalizedGradeKey.toLowerCase() === normalizedLower) {
         return grades[gradeKey] || 0;
       }
       
-      // Also try direct case-insensitive match
       if (gradeKey.toLowerCase() === normalizedLower) {
         return grades[gradeKey] || 0;
       }
     }
 
-    // Special mappings for IT subjects
-    // CAT (Computer Applications Technology) can satisfy IT requirements
     if (subjectName === 'IT' || normalized === 'IT') {
       if (grades['CAT'] !== undefined && grades['CAT'] !== null) {
         return grades['CAT'] || 0;
@@ -176,46 +144,29 @@ export class EligibilityService {
       }
     }
 
-    // Handle either/or subjects for South Africa
-    if (countryCode === 'ZA') {
-      // Math OR MathLiteracy
-      if (subjectName === 'Math' || normalized === 'Math') {
-        if (grades['MathLiteracy'] !== undefined && grades['MathLiteracy'] !== null) {
-          return grades['MathLiteracy'] || 0;
-        }
-      }
-      if (subjectName === 'MathLiteracy' || normalized === 'MathLiteracy') {
-        if (grades['Math'] !== undefined && grades['Math'] !== null) {
-          return grades['Math'] || 0;
-        }
-      }
-
-      // English OR EnglishFAL
-      if (subjectName === 'English' || normalized === 'English') {
-        if (grades['EnglishFAL'] !== undefined && grades['EnglishFAL'] !== null) {
-          return grades['EnglishFAL'] || 0;
-        }
-      }
-      if (subjectName === 'EnglishFAL' || normalized === 'EnglishFAL') {
-        if (grades['English'] !== undefined && grades['English'] !== null) {
-          return grades['English'] || 0;
+    const eitherOrGroups = await this.getEitherOrGroups(countryCode);
+    for (const group of eitherOrGroups) {
+      if (group.subjects.includes(subjectName) || group.subjects.includes(normalized)) {
+        for (const groupSubject of group.subjects) {
+          if (groupSubject !== subjectName && groupSubject !== normalized) {
+            if (grades[groupSubject] !== undefined && grades[groupSubject] !== null) {
+              return grades[groupSubject] || 0;
+            }
+          }
         }
       }
     }
 
-    // Try reverse lookup - check all grade keys and normalize them
     for (const gradeKey in grades) {
       if (grades[gradeKey] === undefined || grades[gradeKey] === null) continue;
       
       const normalizedGradeKey = this.normalizeSubjectName(gradeKey, countryCode);
       const normalizedRequirement = this.normalizeSubjectName(subjectName, countryCode);
       
-      // Match if normalized names are the same (case-insensitive)
       if (normalizedGradeKey.toLowerCase() === normalizedRequirement.toLowerCase()) {
         return grades[gradeKey] || 0;
       }
       
-      // Also try direct match with normalized requirement (case-insensitive)
       if (gradeKey.toLowerCase() === normalizedRequirement.toLowerCase()) {
         return grades[gradeKey] || 0;
       }
@@ -224,16 +175,142 @@ export class EligibilityService {
     return 0;
   }
 
-  checkEligibility(grades: Grades, career: Career, countryCode?: string): EligibleCareer {
+  private async isSubjectEntered(grades: Grades, subjectName: string, countryCode?: string): Promise<boolean> {
+    if (!grades || Object.keys(grades).length === 0) {
+      return false;
+    }
+
+    const code = countryCode || 'ZA';
+
+    if (grades.hasOwnProperty(subjectName) && grades[subjectName] !== undefined && grades[subjectName] !== null) {
+      return true;
+    }
+
+    const normalized = this.normalizeSubjectName(subjectName, code);
+    if (grades.hasOwnProperty(normalized) && grades[normalized] !== undefined && grades[normalized] !== null) {
+      return true;
+    }
+
+    const normalizedLower = normalized.toLowerCase();
+    for (const gradeKey in grades) {
+      if (!grades.hasOwnProperty(gradeKey)) continue;
+      if (grades[gradeKey] === undefined || grades[gradeKey] === null) continue;
+      
+      if (gradeKey.toLowerCase() === normalizedLower) {
+        return true;
+      }
+      
+      const normalizedGradeKey = this.normalizeSubjectName(gradeKey, code);
+      if (normalizedGradeKey.toLowerCase() === normalizedLower) {
+        return true;
+      }
+    }
+
+    if (subjectName === 'IT' || normalized === 'IT') {
+      if (grades.hasOwnProperty('CAT') && grades['CAT'] !== undefined && grades['CAT'] !== null) {
+        return true;
+      }
+    }
+    if (subjectName === 'CAT' || normalized === 'CAT') {
+      if (grades.hasOwnProperty('IT') && grades['IT'] !== undefined && grades['IT'] !== null) {
+        return true;
+      }
+    }
+
+    const eitherOrGroups = await this.getEitherOrGroups(code);
+    for (const group of eitherOrGroups) {
+      if (group.subjects.includes(subjectName) || group.subjects.includes(normalized)) {
+        for (const groupSubject of group.subjects) {
+          if (groupSubject !== subjectName && groupSubject !== normalized) {
+            if (grades.hasOwnProperty(groupSubject) && grades[groupSubject] !== undefined && grades[groupSubject] !== null) {
+              return true;
+            }
+          }
+        }
+      }
+    }
+
+    return false;
+  }
+
+  private async getEitherOrGroups(countryCode: string): Promise<EitherOrGroup[]> {
+    if (this.eitherOrGroupsCache[countryCode]) {
+      return this.eitherOrGroupsCache[countryCode];
+    }
+    
+    try {
+      const groups = await this.subjectsService.getEitherOrGroups(countryCode);
+      this.eitherOrGroupsCache[countryCode] = groups;
+      return groups;
+    } catch (error) {
+      console.warn(`[EligibilityService] Could not fetch either/or groups for ${countryCode}, using empty array:`, error);
+      return [];
+    }
+  }
+
+  private findEitherOrGroup(subject: string, groups: EitherOrGroup[]): EitherOrGroup | null {
+    return groups.find(group => group.subjects.includes(subject)) || null;
+  }
+
+  private async processEitherOrGroup(
+    group: EitherOrGroup,
+    requirements: { [subject: string]: number },
+    grades: Grades,
+    country: string,
+    processedSubjects: Set<string>,
+    missingSubjects: string[],
+    closeSubjects: string[],
+    totalRequirements: { value: number },
+    metRequirements: { value: number }
+  ): Promise<void> {
+    const groupSubjectsInRequirements = group.subjects.filter(subj => requirements[subj] !== undefined);
+    if (groupSubjectsInRequirements.length === 0) {
+      return;
+    }
+
+    group.subjects.forEach(subj => processedSubjects.add(subj));
+
+    const enteredSubjectsPromises = groupSubjectsInRequirements.map(async subj => {
+      const entered = await this.isSubjectEntered(grades, subj, country);
+      return entered ? subj : null;
+    });
+    const enteredSubjectsResults = await Promise.all(enteredSubjectsPromises);
+    const enteredSubjects = enteredSubjectsResults.filter(subj => subj !== null) as string[];
+
+    if (enteredSubjects.length === 0) {
+      return;
+    }
+
+    const gradesForGroupPromises = enteredSubjects.map(async subj => ({
+      subject: subj,
+      grade: await this.getGradeForSubject(grades, subj, country),
+      required: requirements[subj]
+    }));
+    const gradesForGroup = await Promise.all(gradesForGroupPromises);
+
+    const bestGrade = Math.max(...gradesForGroup.map(g => g.grade));
+    const minRequired = Math.min(...gradesForGroup.map(g => g.required));
+
+    totalRequirements.value++;
+
+    if (bestGrade >= minRequired) {
+      metRequirements.value++;
+    } else if (bestGrade >= minRequired * 0.9) {
+      closeSubjects.push(group.description || group.subjects.join(' OR '));
+    } else {
+      missingSubjects.push(group.description || group.subjects.join(' OR '));
+    }
+  }
+
+  async checkEligibility(grades: Grades, career: Career, countryCode?: string): Promise<EligibleCareer> {
     const missingSubjects: string[] = [];
     const closeSubjects: string[] = [];
-    let totalRequirements = 0;
-    let metRequirements = 0;
+    const totalRequirements = { value: 0 };
+    const metRequirements = { value: 0 };
 
     // Get requirements to check - should already be set by CareersService.getCareersForCountry()
     const requirements = career.minGrades || {};
 
-    // If no requirements found, this career cannot be evaluated
     if (!requirements || Object.keys(requirements).length === 0) {
       return {
         career,
@@ -244,80 +321,95 @@ export class EligibilityService {
       };
     }
 
-    // Use country code from career if available, or default to 'ZA'
     const country = countryCode || 'ZA';
-
-    // Debug logging for IT careers
-    if (career.name && (career.name.includes('IT') || career.name.includes('Computer') || career.name.includes('Software') || career.name.includes('Cybersecurity') || career.name.includes('Network'))) {
-      console.log(`[Eligibility] Checking ${career.name}:`, {
-        requirements,
-        grades,
-        country
-      });
-    }
-
-    // For South Africa, handle either/or subjects first
-    // Track which subjects we've already processed
+    const eitherOrGroups = await this.getEitherOrGroups(country);
     const processedSubjects = new Set<string>();
 
-    // Check Math/MathLiteracy pair if both are present
-    if (country === 'ZA' && requirements['Math'] !== undefined && requirements['MathLiteracy'] !== undefined) {
-      const mathGrade = this.getGradeForSubject(grades, 'Math', country);
-      const mathLitGrade = this.getGradeForSubject(grades, 'MathLiteracy', country);
-      const bestGrade = Math.max(mathGrade, mathLitGrade);
-      const mathRequired = requirements['Math'];
-      const mathLitRequired = requirements['MathLiteracy'];
-      const minRequired = Math.min(mathRequired, mathLitRequired);
+    for (const group of eitherOrGroups) {
+      const hasRequiredSubject = group.subjects.some(subj => requirements[subj] !== undefined);
       
-      totalRequirements++;
-      processedSubjects.add('Math');
-      processedSubjects.add('MathLiteracy');
-      
-      if (bestGrade >= minRequired) {
-        metRequirements++;
-      } else if (bestGrade >= minRequired * 0.9) {
-        closeSubjects.push('Math/MathLiteracy');
-      } else {
-        missingSubjects.push('Math/MathLiteracy');
+      if (hasRequiredSubject) {
+        await this.processEitherOrGroup(
+          group,
+          requirements,
+          grades,
+          country,
+          processedSubjects,
+          missingSubjects,
+          closeSubjects,
+          totalRequirements,
+          metRequirements
+        );
       }
     }
 
-    // Check English/EnglishFAL pair if both are present
-    if (country === 'ZA' && requirements['English'] !== undefined && requirements['EnglishFAL'] !== undefined) {
-      const engGrade = this.getGradeForSubject(grades, 'English', country);
-      const engFALGrade = this.getGradeForSubject(grades, 'EnglishFAL', country);
-      const bestGrade = Math.max(engGrade, engFALGrade);
-      const engRequired = requirements['English'];
-      const engFALRequired = requirements['EnglishFAL'];
-      const minRequired = Math.min(engRequired, engFALRequired);
-      
-      totalRequirements++;
-      processedSubjects.add('English');
-      processedSubjects.add('EnglishFAL');
-      
-      if (bestGrade >= minRequired) {
-        metRequirements++;
-      } else if (bestGrade >= minRequired * 0.9) {
-        closeSubjects.push('English/EnglishFAL');
-      } else {
-        missingSubjects.push('English/EnglishFAL');
-      }
-    }
-
-    // Check remaining subjects
     for (const subject in requirements) {
-      // Skip if already processed as part of an either/or pair
       if (processedSubjects.has(subject)) {
         continue;
       }
       
-      const required = requirements[subject];
-      const current = this.getGradeForSubject(grades, subject, country);
+      const subjectEntered = await this.isSubjectEntered(grades, subject, country);
       
-      totalRequirements++;
+      if (!subjectEntered) {
+        continue;
+      }
+      
+      let keyExists = false;
+      if (grades.hasOwnProperty(subject)) {
+        keyExists = true;
+      } else {
+        const normalized = this.normalizeSubjectName(subject, country);
+        if (grades.hasOwnProperty(normalized)) {
+          keyExists = true;
+        } else {
+          const normalizedLower = normalized.toLowerCase();
+          for (const gradeKey in grades) {
+            if (grades.hasOwnProperty(gradeKey) && 
+                gradeKey.toLowerCase() === normalizedLower) {
+              keyExists = true;
+              break;
+            }
+          }
+        }
+      }
+      
+      if (!keyExists) {
+        continue;
+      }
+      
+      const required = requirements[subject];
+      const current = await this.getGradeForSubject(grades, subject, country);
+      
+      if (current === 0) {
+        let zeroKeyExists = false;
+        if (grades.hasOwnProperty(subject)) {
+          zeroKeyExists = true;
+        } else {
+          const normalized = this.normalizeSubjectName(subject, country);
+          if (grades.hasOwnProperty(normalized)) {
+            zeroKeyExists = true;
+          } else {
+            // Check case-insensitive match
+            const normalizedLower = normalized.toLowerCase();
+            for (const gradeKey in grades) {
+              if (grades.hasOwnProperty(gradeKey) && 
+                  gradeKey.toLowerCase() === normalizedLower) {
+                zeroKeyExists = true;
+                break;
+              }
+            }
+          }
+        }
+        
+        if (!zeroKeyExists) {
+          continue;
+        }
+      }
+      
+      totalRequirements.value++;
       
       if (current >= required) {
-        metRequirements++;
+        metRequirements.value++;
       } else if (current >= required * 0.9) {
         closeSubjects.push(subject);
       } else {
@@ -325,53 +417,61 @@ export class EligibilityService {
       }
     }
 
-    const matchScore = totalRequirements > 0 ? (metRequirements / totalRequirements) * 100 : 0;
+    const filteredMissingSubjectsPromises = missingSubjects.map(async subject => {
+      const group = eitherOrGroups.find(g => g.description === subject || g.subjects.join(' OR ') === subject);
+      if (group) {
+        const enteredPromises = group.subjects.map(subj => this.isSubjectEntered(grades, subj, country));
+        const enteredResults = await Promise.all(enteredPromises);
+        return enteredResults.some(entered => entered);
+      }
+      return await this.isSubjectEntered(grades, subject, country);
+    });
+    const filteredMissingSubjectsResults = await Promise.all(filteredMissingSubjectsPromises);
+    const filteredMissingSubjects = missingSubjects.filter((_, index) => filteredMissingSubjectsResults[index]);
+
+    const filteredCloseSubjectsPromises = closeSubjects.map(async subject => {
+      const group = eitherOrGroups.find(g => g.description === subject || g.subjects.join(' OR ') === subject);
+      if (group) {
+        const enteredPromises = group.subjects.map(subj => this.isSubjectEntered(grades, subj, country));
+        const enteredResults = await Promise.all(enteredPromises);
+        return enteredResults.some(entered => entered);
+      }
+      return await this.isSubjectEntered(grades, subject, country);
+    });
+    const filteredCloseSubjectsResults = await Promise.all(filteredCloseSubjectsPromises);
+    const filteredCloseSubjects = closeSubjects.filter((_, index) => filteredCloseSubjectsResults[index]);
+
+    const matchScore = totalRequirements.value > 0 ? (metRequirements.value / totalRequirements.value) * 100 : 0;
 
     let status: 'qualified' | 'close' | 'needs-improvement';
-    if (totalRequirements === 0) {
+    if (totalRequirements.value === 0) {
       status = 'needs-improvement';
-    } else if (missingSubjects.length === 0 && closeSubjects.length === 0) {
+    } else if (filteredMissingSubjects.length === 0 && filteredCloseSubjects.length === 0) {
       status = 'qualified';
-    } else if (missingSubjects.length === 0 && closeSubjects.length > 0) {
+    } else if (filteredMissingSubjects.length === 0 && filteredCloseSubjects.length > 0) {
       status = 'close';
     } else if (matchScore >= 60) {
-      // Lowered threshold from 70% to 60% to show more "almost qualified" careers
-      // This encourages users by showing careers within reach with improvement
       status = 'close';
     } else {
       status = 'needs-improvement';
     }
 
-    const result = {
+    return {
       career,
       status,
       matchScore: Math.round(matchScore),
-      missingSubjects,
-      closeSubjects
+      missingSubjects: filteredMissingSubjects,
+      closeSubjects: filteredCloseSubjects
     };
-
-    // Debug logging for IT careers
-    if (career.name && (career.name.includes('IT') || career.name.includes('Computer') || career.name.includes('Software') || career.name.includes('Cybersecurity') || career.name.includes('Network'))) {
-      console.log(`[Eligibility] ${career.name} result:`, {
-        status: result.status,
-        matchScore: result.matchScore,
-        metRequirements,
-        totalRequirements,
-        missingSubjects: result.missingSubjects,
-        closeSubjects: result.closeSubjects
-      });
-    }
-
-    return result;
   }
 
-  getEligibleCareers(grades: Grades, careers: Career[], countryCode?: string): EligibleCareer[] {
+  async getEligibleCareers(grades: Grades, careers: Career[], countryCode?: string): Promise<EligibleCareer[]> {
     if (!grades || Object.keys(grades).length === 0) {
       return [];
     }
 
-    const eligibleCareers = careers.map(career => 
-      this.checkEligibility(grades, career, countryCode)
+    const eligibleCareers = await Promise.all(
+      careers.map(career => this.checkEligibility(grades, career, countryCode))
     );
 
     return eligibleCareers.sort((a, b) => {
@@ -381,14 +481,14 @@ export class EligibilityService {
     });
   }
 
-  getFullyQualifiedCareers(grades: Grades, careers: Career[]): EligibleCareer[] {
-    return this.getEligibleCareers(grades, careers)
-      .filter(eligible => eligible.status === 'qualified');
+  async getFullyQualifiedCareers(grades: Grades, careers: Career[]): Promise<EligibleCareer[]> {
+    const eligible = await this.getEligibleCareers(grades, careers);
+    return eligible.filter(e => e.status === 'qualified');
   }
 
-  getCloseCareers(grades: Grades, careers: Career[]): EligibleCareer[] {
-    return this.getEligibleCareers(grades, careers)
-      .filter(eligible => eligible.status === 'close');
+  async getCloseCareers(grades: Grades, careers: Career[]): Promise<EligibleCareer[]> {
+    const eligible = await this.getEligibleCareers(grades, careers);
+    return eligible.filter(e => e.status === 'close');
   }
 }
 

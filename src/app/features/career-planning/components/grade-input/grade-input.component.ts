@@ -1,22 +1,26 @@
-import { Component, Output, EventEmitter, Input, OnChanges, SimpleChanges, ChangeDetectorRef } from '@angular/core';
+import { Component, Output, EventEmitter, Input, OnChanges, SimpleChanges, ChangeDetectorRef, OnDestroy } from '@angular/core';
 import { Grades } from '../../../../shared/models/grades.model';
 import { Country } from '../../../../shared/models/country.model';
 import { FormGroup, FormBuilder, Validators } from '@angular/forms';
-import { SubjectMapping } from '../../../../shared/models/subject.model';
+import { SubjectMapping, EitherOrGroup } from '../../../../shared/models/subject.model';
 import { SubjectsService } from '../../../../shared/services/subjects.service';
+import { Subject } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 
 @Component({
   selector: 'app-grade-input',
   templateUrl: './grade-input.component.html',
   styleUrls: ['./grade-input.component.scss']
 })
-export class GradeInputComponent implements OnChanges {
+export class GradeInputComponent implements OnChanges, OnDestroy {
   @Input() selectedCountry: Country | null = null;
   @Output() gradesChange = new EventEmitter<Grades>();
   
   gradeForm: FormGroup;
   subjectMappings: SubjectMapping[] = [];
   currentGrades: Grades = {};
+  eitherOrGroups: EitherOrGroup[] = [];
+  private destroy$ = new Subject<void>();
 
   constructor(
     private fb: FormBuilder,
@@ -24,6 +28,11 @@ export class GradeInputComponent implements OnChanges {
     private cdr: ChangeDetectorRef
   ) {
     this.gradeForm = this.fb.group({});
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
   async ngOnChanges(changes: SimpleChanges) {
@@ -64,10 +73,29 @@ export class GradeInputComponent implements OnChanges {
     
     this.gradeForm = newForm;
     
-    // Special handling for South Africa: Math OR MathLiteracy, English OR EnglishFAL (not both for each pair)
-    if (countryCode === 'ZA') {
-      this.setupEitherOrValidation(this.gradeForm, 'Math', 'MathLiteracy');
-      this.setupEitherOrValidation(this.gradeForm, 'English', 'EnglishFAL');
+    try {
+      this.eitherOrGroups = await this.subjectsService.getEitherOrGroups(countryCode);
+      
+      for (const group of this.eitherOrGroups) {
+        if (group.subjects.length >= 2) {
+          // For groups with 2+ subjects, set up validation
+          // Default: only one subject from the group can be entered (maxAllowed: 1)
+          const maxAllowed = group.maxAllowed ?? 1;
+          
+          if (maxAllowed === 1) {
+            // Only one subject allowed - set up mutual exclusivity
+            for (let i = 0; i < group.subjects.length; i++) {
+              for (let j = i + 1; j < group.subjects.length; j++) {
+                this.setupEitherOrValidation(this.gradeForm, group.subjects[i], group.subjects[j]);
+              }
+            }
+          }
+          // For maxAllowed > 1, we could implement more complex validation if needed
+        }
+      }
+    } catch (error) {
+      console.warn(`[GradeInputComponent] Could not load either/or groups for ${countryCode}:`, error);
+      // Fallback: continue without either/or validation
     }
     
     this.onGradesChange(); // Emit updated grades
@@ -111,15 +139,15 @@ export class GradeInputComponent implements OnChanges {
     };
     
     // Set up valueChanges subscriptions
-    control1.valueChanges.subscribe(() => {
+    control1.valueChanges.pipe(takeUntil(this.destroy$)).subscribe(() => {
       handleEitherOr();
-      this.cdr.detectChanges(); // Trigger change detection
+      this.cdr.detectChanges();
       this.onGradesChange();
     });
     
-    control2.valueChanges.subscribe(() => {
+    control2.valueChanges.pipe(takeUntil(this.destroy$)).subscribe(() => {
       handleEitherOr();
-      this.cdr.detectChanges(); // Trigger change detection
+      this.cdr.detectChanges();
       this.onGradesChange();
     });
     
@@ -128,15 +156,14 @@ export class GradeInputComponent implements OnChanges {
   }
 
   handleEitherOrInput(standardName: string) {
-    // Immediately handle the either/or logic when user types
-    if (this.selectedCountry?.code === 'ZA') {
-      // Handle Math/MathLiteracy pair
-      if (standardName === 'Math' || standardName === 'MathLiteracy') {
-        this.handleEitherOrPair('Math', 'MathLiteracy', standardName);
-      }
-      // Handle English/EnglishFAL pair
-      if (standardName === 'English' || standardName === 'EnglishFAL') {
-        this.handleEitherOrPair('English', 'EnglishFAL', standardName);
+    for (const group of this.eitherOrGroups) {
+      if (group.subjects.includes(standardName)) {
+        for (const otherSubject of group.subjects) {
+          if (otherSubject !== standardName) {
+            this.handleEitherOrPair(standardName, otherSubject, standardName);
+          }
+        }
+        break;
       }
     }
   }
@@ -178,12 +205,15 @@ export class GradeInputComponent implements OnChanges {
   }
 
   onGradesChange() {
-    // For South Africa: Validate that at least one of each pair is filled
-    if (this.selectedCountry?.code === 'ZA') {
-      // Validate Math/MathLiteracy pair
-      this.validateEitherOrPair('Math', 'MathLiteracy', 'mathOrMathLiteracyRequired');
-      // Validate English/EnglishFAL pair
-      this.validateEitherOrPair('English', 'EnglishFAL', 'englishOrEnglishFALRequired');
+    for (const group of this.eitherOrGroups) {
+      if (group.subjects.length >= 2) {
+        const errorKey = `${group.subjects.join('_')}_required`;
+        for (let i = 0; i < group.subjects.length; i++) {
+          for (let j = i + 1; j < group.subjects.length; j++) {
+            this.validateEitherOrPair(group.subjects[i], group.subjects[j], errorKey);
+          }
+        }
+      }
     }
     
     if (this.gradeForm.valid) {
@@ -234,76 +264,50 @@ export class GradeInputComponent implements OnChanges {
   }
 
   getPlaceholder(standardName: string): string {
-    if (standardName === 'Math' || standardName === 'MathLiteracy') {
-      return 'Enter grade (0-100) - One required';
-    }
-    if (standardName === 'English' || standardName === 'EnglishFAL') {
-      return 'Enter grade (0-100) - One required';
+    for (const group of this.eitherOrGroups) {
+      if (group.subjects.includes(standardName)) {
+        return 'Enter grade (0-100) - One required';
+      }
     }
     return 'Enter grade (0-100) - Required';
   }
 
   getRequiredSubjects(): SubjectMapping[] {
-    // For South Africa, include Math, MathLiteracy, English, and EnglishFAL in required section (even though individually not required)
-    if (this.selectedCountry?.code === 'ZA') {
-      return this.subjectMappings.filter(s => 
-        s.required || 
-        s.standardName === 'Math' || 
-        s.standardName === 'MathLiteracy' ||
-        s.standardName === 'English' ||
-        s.standardName === 'EnglishFAL'
-      );
+    const subjectsInEitherOrGroups = new Set<string>();
+    for (const group of this.eitherOrGroups) {
+      group.subjects.forEach(subj => subjectsInEitherOrGroups.add(subj));
     }
-    return this.subjectMappings.filter(s => s.required);
+    
+    return this.subjectMappings.filter(s => 
+      s.required || subjectsInEitherOrGroups.has(s.standardName)
+    );
   }
 
   getElectiveSubjects(): SubjectMapping[] {
-    // For South Africa, exclude Math, MathLiteracy, English, and EnglishFAL from elective section
-    if (this.selectedCountry?.code === 'ZA') {
-      return this.subjectMappings.filter(s => 
-        !s.required && 
-        s.standardName !== 'Math' && 
-        s.standardName !== 'MathLiteracy' &&
-        s.standardName !== 'English' &&
-        s.standardName !== 'EnglishFAL'
-      );
+    const subjectsInEitherOrGroups = new Set<string>();
+    for (const group of this.eitherOrGroups) {
+      group.subjects.forEach(subj => subjectsInEitherOrGroups.add(subj));
     }
-    return this.subjectMappings.filter(s => !s.required);
+    
+    return this.subjectMappings.filter(s => 
+      !s.required && !subjectsInEitherOrGroups.has(s.standardName)
+    );
   }
 
 
   isSubjectHidden(standardName: string): boolean {
-    // For South Africa: hide one field if the other in the pair has a value
-    if (this.selectedCountry?.code === 'ZA') {
-      // Handle Math/MathLiteracy pair
-      if (standardName === 'MathLiteracy') {
-        const mathControl = this.gradeForm.get('Math');
-        if (mathControl) {
-          const mathValue = mathControl.value;
-          return !!(mathValue && mathValue !== '' && mathValue !== null && mathValue !== undefined);
-        }
-      }
-      if (standardName === 'Math') {
-        const mathLiteracyControl = this.gradeForm.get('MathLiteracy');
-        if (mathLiteracyControl) {
-          const mathLiteracyValue = mathLiteracyControl.value;
-          return !!(mathLiteracyValue && mathLiteracyValue !== '' && mathLiteracyValue !== null && mathLiteracyValue !== undefined);
-        }
-      }
-      
-      // Handle English/EnglishFAL pair
-      if (standardName === 'EnglishFAL') {
-        const englishControl = this.gradeForm.get('English');
-        if (englishControl) {
-          const englishValue = englishControl.value;
-          return !!(englishValue && englishValue !== '' && englishValue !== null && englishValue !== undefined);
-        }
-      }
-      if (standardName === 'English') {
-        const englishFALControl = this.gradeForm.get('EnglishFAL');
-        if (englishFALControl) {
-          const englishFALValue = englishFALControl.value;
-          return !!(englishFALValue && englishFALValue !== '' && englishFALValue !== null && englishFALValue !== undefined);
+    for (const group of this.eitherOrGroups) {
+      if (group.subjects.includes(standardName)) {
+        for (const otherSubject of group.subjects) {
+          if (otherSubject !== standardName) {
+            const otherControl = this.gradeForm.get(otherSubject);
+            if (otherControl) {
+              const otherValue = otherControl.value;
+              if (otherValue && otherValue !== '' && otherValue !== null && otherValue !== undefined) {
+                return true;
+              }
+            }
+          }
         }
       }
     }

@@ -2,13 +2,14 @@ import { Injectable } from '@angular/core';
 import { initializeApp, FirebaseApp, getApps, getApp } from 'firebase/app';
 import { getFirestore, Firestore, collection, doc, getDoc, getDocs, query, where, QuerySnapshot, DocumentSnapshot, addDoc, serverTimestamp } from 'firebase/firestore';
 import { environment } from '../../../environments/environment';
+import { LoggingService } from './logging.service';
 
 @Injectable({ providedIn: 'root' })
 export class FirebaseService {
   private app: FirebaseApp | null = null;
   private db: Firestore | null = null;
 
-  constructor() {
+  constructor(private loggingService: LoggingService) {
     if (environment.firebaseConfig && environment.firebaseConfig.apiKey) {
       this.initializeFirebase();
     }
@@ -23,7 +24,7 @@ export class FirebaseService {
       }
       this.db = getFirestore(this.app);
     } catch (error) {
-      console.error('Firebase initialization error:', error);
+      this.loggingService.error('Firebase initialization error', error);
     }
   }
 
@@ -33,7 +34,7 @@ export class FirebaseService {
 
   async getDocument(collectionName: string, documentId: string): Promise<any | null> {
     if (!this.db) {
-      console.warn('Firebase not initialized, returning null');
+      this.loggingService.warn('Firebase not initialized, returning null');
       return null;
     }
 
@@ -46,14 +47,14 @@ export class FirebaseService {
       }
       return null;
     } catch (error) {
-      console.error(`Error fetching document ${documentId} from ${collectionName}:`, error);
+      this.loggingService.error(`Error fetching document ${documentId} from ${collectionName}`, error);
       return null;
     }
   }
 
   async getCollection(collectionName: string): Promise<any[]> {
     if (!this.db) {
-      console.warn('Firebase not initialized, returning empty array');
+      this.loggingService.warn('Firebase not initialized, returning empty array');
       return [];
     }
 
@@ -64,14 +65,14 @@ export class FirebaseService {
         ...doc.data()
       }));
     } catch (error) {
-      console.error(`Error fetching collection ${collectionName}:`, error);
+      this.loggingService.error(`Error fetching collection ${collectionName}`, error);
       return [];
     }
   }
 
   async getCollectionWhere(collectionName: string, field: string, operator: any, value: any): Promise<any[]> {
     if (!this.db) {
-      console.warn('Firebase not initialized, returning empty array');
+      this.loggingService.warn('Firebase not initialized, returning empty array');
       return [];
     }
 
@@ -83,14 +84,14 @@ export class FirebaseService {
         ...doc.data()
       }));
     } catch (error) {
-      console.error(`Error fetching filtered collection ${collectionName}:`, error);
+      this.loggingService.error(`Error fetching filtered collection ${collectionName}`, error);
       return [];
     }
   }
 
   async addDocument(collectionName: string, data: any): Promise<string | null> {
     if (!this.db) {
-      console.warn('Firebase not initialized, cannot add document');
+      this.loggingService.warn('Firebase not initialized, cannot add document');
       return null;
     }
 
@@ -101,7 +102,7 @@ export class FirebaseService {
       });
       return docRef.id;
     } catch (error) {
-      console.error(`Error adding document to ${collectionName}:`, error);
+      this.loggingService.error(`Error adding document to ${collectionName}`, error);
       return null;
     }
   }

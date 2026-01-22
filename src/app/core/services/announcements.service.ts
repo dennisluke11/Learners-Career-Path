@@ -3,14 +3,18 @@ import { FirebaseService } from './firebase.service';
 import { Announcement } from '../../shared/models/announcement.model';
 import { collection, query, where, getDocs, orderBy, limit, Timestamp, updateDoc, doc, increment } from 'firebase/firestore';
 import { getFirestore } from 'firebase/firestore';
+import { LoggingService } from './logging.service';
 
 @Injectable({ providedIn: 'root' })
 export class AnnouncementsService {
   private cache: Announcement[] = [];
   private cacheTimestamp: number = 0;
-  private cacheDuration: number = 5 * 60 * 1000; // 5 minutes
+  private cacheDuration: number = 5 * 60 * 1000;
 
-  constructor(private firebaseService: FirebaseService) {}
+  constructor(
+    private firebaseService: FirebaseService,
+    private loggingService: LoggingService
+  ) {}
 
   /**
    * Get announcements filtered by user context
@@ -28,7 +32,7 @@ export class AnnouncementsService {
     const now = Date.now();
     if (this.cache.length > 0 && (now - this.cacheTimestamp) < this.cacheDuration) {
       const filtered = this.filterAnnouncements(this.cache, country, career, gradeLevel);
-      console.log(`[AnnouncementsService] Using cache: ${this.cache.length} announcements, filtered to ${filtered.length} for country: ${country}, career: ${career}, gradeLevel: ${gradeLevel}`);
+      this.loggingService.debug(`Using cache: ${this.cache.length} announcements, filtered to ${filtered.length}`, { country, career, gradeLevel });
       return filtered;
     }
 
@@ -36,19 +40,22 @@ export class AnnouncementsService {
       const db = getFirestore();
       const announcementsRef = collection(db, 'announcements');
       
-      // Query: active announcements, within date range
-      // Note: We sort by priority in memory to avoid composite index requirements
+      // Query: active announcements only (filter dates in memory to avoid composite index)
+      // This avoids needing a composite index for multiple range filters
       const currentDate = new Date();
       const q = query(
         announcementsRef,
         where('isActive', '==', true),
-        where('startDate', '<=', Timestamp.fromDate(currentDate)),
-        where('endDate', '>=', Timestamp.fromDate(currentDate)),
-        limit(50)
+        limit(100) // Fetch more to account for date filtering
       );
 
       const querySnapshot = await getDocs(q);
       const announcements: Announcement[] = [];
+
+      if (querySnapshot.empty) {
+        this.loggingService.warn('No active announcements found in Firestore');
+        return [];
+      }
 
       querySnapshot.forEach((doc) => {
         const data = doc.data();
@@ -57,43 +64,39 @@ export class AnnouncementsService {
         const createdAt = data['createdAt']?.toDate ? data['createdAt'].toDate() : new Date();
         const updatedAt = data['updatedAt']?.toDate ? data['updatedAt'].toDate() : new Date();
         
-        announcements.push({
-          id: doc.id,
-          ...data,
-          startDate: startDate,
-          endDate: endDate,
-          createdAt: createdAt,
-          updatedAt: updatedAt
-        } as Announcement);
+        // Filter by date range in memory
+        if (startDate <= currentDate && endDate >= currentDate) {
+          announcements.push({
+            id: doc.id,
+            ...data,
+            startDate: startDate,
+            endDate: endDate,
+            createdAt: createdAt,
+            updatedAt: updatedAt
+          } as Announcement);
+        }
       });
 
       // Update cache
       this.cache = announcements;
       this.cacheTimestamp = Date.now();
 
-      console.log(`[AnnouncementsService] Raw announcements from Firestore:`, announcements.map(a => ({
-        id: a.id,
-        title: a.title,
-        priority: a.priority,
-        targetCountries: a.targetCountries,
-        targetGradeLevels: a.targetGradeLevels,
-        isActive: a.isActive
-      })));
+      this.loggingService.debug(`Fetched ${querySnapshot.size} active announcements from Firestore, ${announcements.length} within date range`);
+      if (querySnapshot.size > 0 && announcements.length === 0) {
+        this.loggingService.warn(`Found ${querySnapshot.size} active announcements but none are within the current date range`);
+      }
 
       const filtered = this.filterAnnouncements(announcements, country, career, gradeLevel);
-      console.log(`[AnnouncementsService] Fetched ${announcements.length} announcements, filtered to ${filtered.length} for country: ${country}, career: ${career}, gradeLevel: ${gradeLevel}`);
-      console.log(`[AnnouncementsService] Filtered announcements:`, filtered.map(a => ({
-        id: a.id,
-        title: a.title,
-        priority: a.priority
-      })));
+      this.loggingService.debug(`Filtered ${announcements.length} announcements to ${filtered.length}`, { country, career, gradeLevel });
+      if (filtered.length === 0 && announcements.length > 0) {
+        this.loggingService.warn('All announcements were filtered out. Check if country/career/gradeLevel filters are too restrictive');
+      }
       return filtered;
     } catch (error: any) {
-      // Handle permission errors gracefully - use defaults instead of spamming console
       if (error?.code === 'permission-denied' || error?.message?.includes('permissions')) {
-        console.warn('[AnnouncementsService] Permission denied - using default announcements. Please check Firestore security rules.');
+        this.loggingService.warn('Permission denied - using default announcements. Please check Firestore security rules');
       } else {
-        console.error('[AnnouncementsService] Error fetching announcements:', error);
+        this.loggingService.error('Error fetching announcements', error);
       }
       return this.getDefaultAnnouncements();
     }
@@ -109,11 +112,7 @@ export class AnnouncementsService {
     career?: string,
     gradeLevel?: number
   ): Announcement[] {
-    console.log(`[AnnouncementsService] Filtering ${announcements.length} announcements with filters:`, {
-      country,
-      career,
-      gradeLevel
-    });
+    this.loggingService.debug(`Filtering ${announcements.length} announcements`, { country, career, gradeLevel });
 
     return announcements.filter(announcement => {
       let passesFilter = true;
@@ -153,7 +152,7 @@ export class AnnouncementsService {
       // If announcement has no grade level restrictions, show to all grade levels
 
       if (!passesFilter) {
-        console.log(`[AnnouncementsService] Filtered out "${announcement.title}":`, reasons.join('; '));
+        this.loggingService.debug(`Filtered out "${announcement.title}"`, { reasons: reasons.join('; ') });
       }
 
       return passesFilter;
@@ -185,10 +184,8 @@ export class AnnouncementsService {
         views: increment(1)
       });
     } catch (error: any) {
-      // Silently fail for permission errors to avoid console spam
-      // The app should work even if analytics tracking fails
       if (error?.code !== 'permission-denied' && !error?.message?.includes('permissions')) {
-        console.warn('[AnnouncementsService] Error tracking announcement view:', error);
+        this.loggingService.warn('Error tracking announcement view', error);
       }
     }
   }
@@ -208,36 +205,18 @@ export class AnnouncementsService {
         clicks: increment(1)
       });
     } catch (error: any) {
-      // Silently fail for permission errors to avoid console spam
-      // The app should work even if analytics tracking fails
       if (error?.code !== 'permission-denied' && !error?.message?.includes('permissions')) {
-        console.warn('[AnnouncementsService] Error tracking announcement click:', error);
+        this.loggingService.warn('Error tracking announcement click', error);
       }
     }
   }
 
   /**
-   * Get default announcements (fallback)
+   * Get default announcements (fallback) - Returns empty array to enforce Firestore-only data
    */
   private getDefaultAnnouncements(): Announcement[] {
-    return [
-      {
-        id: 'default-1',
-        title: 'Welcome to Learner\'s Career Path',
-        content: 'Start your career journey by selecting your country, grade level, and entering your grades to discover your path to success.',
-        type: 'general',
-        priority: 1,
-        startDate: new Date(),
-        endDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year from now
-        isActive: true,
-        isPaid: false,
-        actionButton: {
-          text: 'For More Details',
-          url: '#',
-          type: 'internal'
-        }
-      }
-    ];
+    this.loggingService.warn('No announcements available. Possible reasons: no announcements in Firestore, permission errors, all filtered out, or outside date range');
+    return [];
   }
 
   /**

@@ -5,6 +5,7 @@ import { ReactiveFormsModule } from '@angular/forms';
 import { CountrySelectorComponent } from './components/country-selector/country-selector.component';
 import { GradeLevelSelectorComponent } from './components/grade-level-selector/grade-level-selector.component';
 import { AnnouncementsComponent } from './components/announcements/announcements.component';
+import { AnnouncementDialogComponent } from './components/announcement-dialog/announcement-dialog.component';
 
 @NgModule({
   declarations: [
@@ -14,7 +15,8 @@ import { AnnouncementsComponent } from './components/announcements/announcements
   ],
   imports: [
     CommonModule,
-    ReactiveFormsModule
+    ReactiveFormsModule,
+    AnnouncementDialogComponent
   ],
   exports: [
     CountrySelectorComponent,

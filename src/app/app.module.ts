@@ -1,4 +1,4 @@
-import { NgModule } from '@angular/core';
+import { NgModule, ErrorHandler } from '@angular/core';
 import { BrowserModule } from '@angular/platform-browser';
 import { HttpClientModule } from '@angular/common/http';
 
@@ -8,7 +8,7 @@ import { SharedModule } from './shared/shared.module';
 import { AppRoutingModule } from './app-routing.module';
 import { CareerPlanningModule } from './features/career-planning/career-planning.module';
 import { EligibilityModule } from './features/eligibility/eligibility.module';
-import { StudyResourcesModule } from './features/study-resources/study-resources.module';
+import { GlobalErrorHandler } from './core/services/error-handler.service';
 
 @NgModule({
   declarations: [
@@ -21,10 +21,11 @@ import { StudyResourcesModule } from './features/study-resources/study-resources
     SharedModule,
     AppRoutingModule,
     CareerPlanningModule,
-    EligibilityModule,
-    StudyResourcesModule
+    EligibilityModule
   ],
-  providers: [],
+  providers: [
+    { provide: ErrorHandler, useClass: GlobalErrorHandler }
+  ],
   bootstrap: [AppComponent]
 })
 export class AppModule { }

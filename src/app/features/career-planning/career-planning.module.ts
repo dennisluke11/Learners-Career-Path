@@ -7,6 +7,7 @@ import { GradeInputComponent } from './components/grade-input/grade-input.compon
 import { CareerSelectorComponent } from './components/career-selector/career-selector.component';
 import { ImprovementDisplayComponent } from './components/improvement-display/improvement-display.component';
 import { ProgressChartsComponent } from './components/progress-charts/progress-charts.component';
+import { UniversityDialogComponent } from '../../shared/components/university-dialog/university-dialog.component';
 
 import { CareersService } from './services/careers.service';
 import { ImprovementService } from './services/improvement.service';
@@ -21,7 +22,8 @@ import { ImprovementService } from './services/improvement.service';
   imports: [
     CommonModule,
     ReactiveFormsModule,
-    SharedModule
+    SharedModule,
+    UniversityDialogComponent
   ],
   providers: [
     CareersService,

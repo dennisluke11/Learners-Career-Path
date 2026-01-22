@@ -1,20 +1,20 @@
-<div class="grade-input-container" [formGroup]="gradeForm">
-  <h2>Enter Your Current Grades</h2>
-  <div *ngIf="selectedCountry" class="country-note">
-    <span>{{selectedCountry.flag}}</span>
+<section class="grade-input-container" [formGroup]="gradeForm" aria-labelledby="grades-heading">
+  <h2 id="grades-heading">Enter Your Current Grades</h2>
+  <div *ngIf="selectedCountry" class="country-note" role="status" aria-live="polite">
     <span>Subjects for {{selectedCountry.name}} curriculum</span>
   </div>
 
   <!-- Compulsory Subjects Section -->
-  <div *ngIf="getRequiredSubjects().length > 0" class="compulsory-section">
-    <h3 class="section-title">
-      <span class="section-icon">📋</span>
+  <div *ngIf="getRequiredSubjects().length > 0" class="compulsory-section" aria-labelledby="compulsory-heading">
+    <h3 id="compulsory-heading" class="section-title">
+      <span class="section-icon" aria-hidden="true">📋</span>
+      <span class="sr-only">Compulsory subjects section: </span>
       Compulsory Subjects
-      <span class="section-badge">{{getRequiredSubjects().length}}</span>
+      <span class="section-badge" [attr.aria-label]="getRequiredSubjects().length + ' compulsory subjects'">{{getRequiredSubjects().length}}</span>
     </h3>
     <p class="section-description">
       These subjects are required for your {{selectedCountry?.name}} curriculum. Please enter your grades for all compulsory subjects.
-      <span *ngIf="selectedCountry?.code === 'ZA'" class="math-note">
+      <span *ngIf="eitherOrGroups.length > 0" class="math-note">
         <strong>Important:</strong> You must enter a grade for either <strong>Mathematics</strong> OR <strong>Mathematical Literacy</strong> (not both). 
         You must also enter a grade for either <strong>English (Home Language)</strong> OR <strong>English (First Additional Language)</strong> (not both). 
         When you enter a value for one, the other will be automatically hidden.
@@ -37,8 +37,16 @@
             max="100"
             [placeholder]="getPlaceholder(mapping.standardName)"
             [required]="mapping.required"
+            [attr.aria-required]="mapping.required"
+            [attr.aria-invalid]="gradeForm.get(mapping.standardName)?.invalid && gradeForm.get(mapping.standardName)?.touched"
+            [attr.aria-describedby]="(gradeForm.get(mapping.standardName)?.invalid && gradeForm.get(mapping.standardName)?.touched) ? ('error-' + mapping.standardName) : null"
           />
-          <span *ngIf="gradeForm.get(mapping.standardName)?.invalid && gradeForm.get(mapping.standardName)?.touched" class="error-message">
+          <span 
+            *ngIf="gradeForm.get(mapping.standardName)?.invalid && gradeForm.get(mapping.standardName)?.touched" 
+            class="error-message"
+            [id]="'error-' + mapping.standardName"
+            role="alert"
+            aria-live="polite">
             <span *ngIf="gradeForm.get(mapping.standardName)?.errors?.['required']">This field is required</span>
             <span *ngIf="gradeForm.get(mapping.standardName)?.errors?.['mathOrMathLiteracyRequired']">
               You must enter a grade for either Mathematics or Mathematical Literacy
@@ -56,11 +64,12 @@
   </div>
 
   <!-- Elective Subjects Section -->
-  <div *ngIf="getElectiveSubjects().length > 0" class="elective-section">
-    <h3 class="section-title">
-      <span class="section-icon">📚</span>
+  <div *ngIf="getElectiveSubjects().length > 0" class="elective-section" aria-labelledby="elective-heading">
+    <h3 id="elective-heading" class="section-title">
+      <span class="section-icon" aria-hidden="true">📚</span>
+      <span class="sr-only">Elective subjects section: </span>
       Elective Subjects
-      <span class="section-badge">{{getElectiveSubjects().length}}</span>
+      <span class="section-badge" [attr.aria-label]="getElectiveSubjects().length + ' elective subjects'">{{getElectiveSubjects().length}}</span>
     </h3>
     <p class="section-description">
       Select and enter grades for the elective subjects you are taking. Enter grades only for subjects you are currently studying.
@@ -78,12 +87,20 @@
           min="0"
           max="100"
           placeholder="Enter grade (0-100) - Optional"
+          aria-required="false"
+          [attr.aria-invalid]="gradeForm.get(mapping.standardName)?.invalid && gradeForm.get(mapping.standardName)?.touched"
+          [attr.aria-describedby]="(gradeForm.get(mapping.standardName)?.invalid && gradeForm.get(mapping.standardName)?.touched) ? ('error-' + mapping.standardName) : null"
         />
-        <span *ngIf="gradeForm.get(mapping.standardName)?.invalid && gradeForm.get(mapping.standardName)?.touched" class="error-message">
+        <span 
+          *ngIf="gradeForm.get(mapping.standardName)?.invalid && gradeForm.get(mapping.standardName)?.touched" 
+          class="error-message"
+          [id]="'error-' + mapping.standardName"
+          role="alert"
+          aria-live="polite">
           Please enter a valid grade (0-100)
         </span>
       </div>
     </div>
   </div>
-</div>
+</section>
 

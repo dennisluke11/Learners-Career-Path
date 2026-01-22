@@ -6,6 +6,7 @@
 
 const functions = require('firebase-functions');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+const { createRateLimiter } = require('./rate-limiter');
 
 // Initialize Gemini AI with API key from Firebase Functions config
 // Set using: firebase functions:config:set gemini.api_key="YOUR_KEY"
@@ -13,15 +14,36 @@ const functionsConfig = functions.config();
 const geminiApiKey = functionsConfig.gemini?.api_key || process.env.GEMINI_API_KEY || '';
 const genAI = geminiApiKey ? new GoogleGenerativeAI(geminiApiKey) : null;
 
+// Rate limiter: 50 requests per minute per IP
+const rateLimiter = createRateLimiter(50, 60000);
+
 /**
  * Get career market data (job openings, salary ranges)
  * This keeps the Gemini API key secure on the server
  */
-exports.getCareerMarketData = functions.https.onRequest(async (req, res) => {
-  // Enable CORS
-  res.set('Access-Control-Allow-Origin', '*');
+const ALLOWED_ORIGINS = [
+  'https://learner-s-career-path.web.app',
+  'https://learner-s-career-path.firebaseapp.com',
+  'http://localhost:4200',
+  'http://localhost:5000'
+];
+
+function setCORSHeaders(req, res) {
+  const origin = req.headers.origin;
+  if (ALLOWED_ORIGINS.includes(origin)) {
+    res.set('Access-Control-Allow-Origin', origin);
+  }
   res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.set('Access-Control-Allow-Headers', 'Content-Type');
+  res.set('Access-Control-Allow-Credentials', 'true');
+}
+
+exports.getCareerMarketData = functions.https.onRequest(async (req, res) => {
+  setCORSHeaders(req, res);
+  
+  // Apply rate limiting
+  rateLimiter(req, res, () => {});
+  if (res.headersSent) return;
 
   if (req.method === 'OPTIONS') {
     res.status(204).send('');
@@ -36,10 +58,20 @@ exports.getCareerMarketData = functions.https.onRequest(async (req, res) => {
   try {
     const { careerName, countryCode } = req.body;
 
-    if (!careerName) {
-      res.status(400).json({ error: 'careerName is required' });
+    if (!careerName || typeof careerName !== 'string' || careerName.trim().length === 0) {
+      res.status(400).json({ error: 'Valid careerName is required' });
       return;
     }
+
+    if (careerName.length > 100) {
+      res.status(400).json({ error: 'careerName is too long' });
+      return;
+    }
+
+    const sanitizedCareerName = careerName.trim().substring(0, 100);
+    const sanitizedCountryCode = countryCode && typeof countryCode === 'string' 
+      ? countryCode.trim().substring(0, 10) 
+      : undefined;
 
     if (!genAI || !geminiApiKey) {
       res.status(500).json({ 
@@ -50,8 +82,8 @@ exports.getCareerMarketData = functions.https.onRequest(async (req, res) => {
     }
 
     // Build prompt
-    const countryContext = countryCode ? ` in ${getCountryName(countryCode)}` : '';
-    const prompt = `Provide current market information for the career "${careerName}"${countryContext}. 
+    const countryContext = sanitizedCountryCode ? ` in ${getCountryName(sanitizedCountryCode)}` : '';
+    const prompt = `Provide current market information for the career "${sanitizedCareerName}"${countryContext}. 
 
 Return a JSON object with this exact structure:
 {
@@ -81,8 +113,8 @@ Requirements:
 4. Use realistic, current data based on 2024 market conditions
 5. If country-specific, adjust salary to local currency and market rates
 
-Career: ${careerName}
-${countryCode ? `Country: ${getCountryName(countryCode)}` : ''}`;
+Career: ${sanitizedCareerName}
+${sanitizedCountryCode ? `Country: ${getCountryName(sanitizedCountryCode)}` : ''}`;
 
     // Use Gemini AI
     const model = genAI.getGenerativeModel({
@@ -99,7 +131,7 @@ ${countryCode ? `Country: ${getCountryName(countryCode)}` : ''}`;
     const data = JSON.parse(responseText);
 
     const marketData = {
-      careerName,
+      careerName: sanitizedCareerName,
       jobOpenings: data.jobOpenings || [],
       salaryRange: data.salaryRange || null,
       marketTrend: data.marketTrend || 'unknown',
@@ -110,10 +142,10 @@ ${countryCode ? `Country: ${getCountryName(countryCode)}` : ''}`;
 
     res.json(marketData);
   } catch (error) {
-    console.error('Error in getCareerMarketData:', error);
+    const errorMessage = error.message || 'Unknown error';
     res.status(500).json({
       error: 'Failed to fetch market data',
-      message: error.message
+      message: 'An error occurred while fetching market data. Please try again later.'
     });
   }
 });
@@ -123,9 +155,11 @@ ${countryCode ? `Country: ${getCountryName(countryCode)}` : ''}`;
  * This keeps the Gemini API key secure on the server
  */
 exports.generateStudyResources = functions.https.onRequest(async (req, res) => {
-  res.set('Access-Control-Allow-Origin', '*');
-  res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.set('Access-Control-Allow-Headers', 'Content-Type');
+  setCORSHeaders(req, res);
+  
+  // Apply rate limiting
+  rateLimiter(req, res, () => {});
+  if (res.headersSent) return;
 
   if (req.method === 'OPTIONS') {
     res.status(204).send('');
@@ -140,10 +174,30 @@ exports.generateStudyResources = functions.https.onRequest(async (req, res) => {
   try {
     const { subject, gradeLevel, countryCode, countryName, careerName } = req.body;
 
-    if (!subject || !gradeLevel || !countryCode) {
-      res.status(400).json({ error: 'subject, gradeLevel, and countryCode are required' });
+    if (!subject || typeof subject !== 'string' || subject.trim().length === 0) {
+      res.status(400).json({ error: 'Valid subject is required' });
       return;
     }
+
+    if (!gradeLevel || typeof gradeLevel !== 'string' || gradeLevel.trim().length === 0) {
+      res.status(400).json({ error: 'Valid gradeLevel is required' });
+      return;
+    }
+
+    if (!countryCode || typeof countryCode !== 'string' || countryCode.trim().length === 0) {
+      res.status(400).json({ error: 'Valid countryCode is required' });
+      return;
+    }
+
+    const sanitizedSubject = subject.trim().substring(0, 50);
+    const sanitizedGradeLevel = gradeLevel.trim().substring(0, 20);
+    const sanitizedCountryCode = countryCode.trim().substring(0, 10);
+    const sanitizedCountryName = countryName && typeof countryName === 'string' 
+      ? countryName.trim().substring(0, 50) 
+      : undefined;
+    const sanitizedCareerName = careerName && typeof careerName === 'string' 
+      ? careerName.trim().substring(0, 100) 
+      : undefined;
 
     if (!genAI || !geminiApiKey) {
       res.status(500).json({ 
@@ -153,15 +207,15 @@ exports.generateStudyResources = functions.https.onRequest(async (req, res) => {
       return;
     }
 
-    const prompt = `Generate comprehensive study resources for ${subject} at ${gradeLevel} level in ${countryName || countryCode}.
+    const prompt = `Generate comprehensive study resources for ${sanitizedSubject} at ${sanitizedGradeLevel} level in ${sanitizedCountryName || sanitizedCountryCode}.
 
-${careerName ? `Context: The student is interested in pursuing a career as ${careerName}.` : ''}
+${sanitizedCareerName ? `Context: The student is interested in pursuing a career as ${sanitizedCareerName}.` : ''}
 
 Return a JSON object with this exact structure:
 {
-  "subject": "${subject}",
-  "gradeLevel": "${gradeLevel}",
-  "country": "${countryName || countryCode}",
+  "subject": "${sanitizedSubject}",
+  "gradeLevel": "${sanitizedGradeLevel}",
+  "country": "${sanitizedCountryName || sanitizedCountryCode}",
   "resources": {
     "studyTips": ["tip 1", "tip 2", "tip 3"],
     "keyTopics": ["topic 1", "topic 2", "topic 3"],
@@ -176,8 +230,8 @@ Requirements:
 2. List 5-7 key topics to focus on
 3. Suggest 2-3 practice resources (websites, books, apps)
 4. Include 2-3 exam preparation strategies
-5. Make content relevant to ${countryName || countryCode} curriculum
-${careerName ? `6. Explain how ${subject} relates to ${careerName}` : ''}
+5. Make content relevant to ${sanitizedCountryName || sanitizedCountryCode} curriculum
+${sanitizedCareerName ? `6. Explain how ${sanitizedSubject} relates to ${sanitizedCareerName}` : ''}
 7. Use clear, actionable language`;
 
     const model = genAI.getGenerativeModel({
@@ -194,9 +248,9 @@ ${careerName ? `6. Explain how ${subject} relates to ${careerName}` : ''}
     const data = JSON.parse(responseText);
 
     const studyResource = {
-      subject: data.subject || subject,
-      gradeLevel: data.gradeLevel || gradeLevel,
-      country: data.country || countryName || countryCode,
+      subject: data.subject || sanitizedSubject,
+      gradeLevel: data.gradeLevel || sanitizedGradeLevel,
+      country: data.country || sanitizedCountryName || sanitizedCountryCode,
       resources: data.resources || {
         studyTips: [],
         keyTopics: [],
@@ -209,10 +263,9 @@ ${careerName ? `6. Explain how ${subject} relates to ${careerName}` : ''}
 
     res.json(studyResource);
   } catch (error) {
-    console.error('Error in generateStudyResources:', error);
     res.status(500).json({
       error: 'Failed to generate study resources',
-      message: error.message
+      message: 'An error occurred while generating study resources. Please try again later.'
     });
   }
 });

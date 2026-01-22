@@ -99,6 +99,126 @@
   }
 }
 
+.qualification-levels-summary {
+  padding: 1.5rem;
+  background: #f8f9fa;
+  border-bottom: 1px solid #e9ecef;
+
+  .summary-title {
+    margin: 0 0 1rem 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #2c3e50;
+  }
+
+  .levels-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+  }
+
+  .level-status-card {
+    background: white;
+    border-radius: 8px;
+    padding: 1rem;
+    border: 2px solid #e0e0e0;
+    transition: all 0.3s ease;
+
+    &.qualified {
+      border-color: #28a745;
+      background: #f0f9f4;
+    }
+
+    &.close {
+      border-color: #ffc107;
+      background: #fffbf0;
+    }
+
+    &.not-eligible {
+      border-color: #dc3545;
+      background: #fff5f5;
+    }
+
+    .level-header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 0.75rem;
+
+      .status-icon {
+        font-size: 1.5rem;
+      }
+
+      .level-info {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+
+        .level-name {
+          font-weight: 600;
+          font-size: 1rem;
+          color: #2c3e50;
+        }
+
+        .nqf-level {
+          font-size: 0.85rem;
+          color: #6c757d;
+        }
+      }
+    }
+
+    .level-details {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+
+      .detail-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 0.9rem;
+
+        &.overall {
+          margin-top: 0.5rem;
+          padding-top: 0.5rem;
+          border-top: 1px solid #e0e0e0;
+          font-weight: 600;
+        }
+
+        .detail-label {
+          color: #6c757d;
+        }
+
+        .detail-value {
+          font-weight: 600;
+          padding: 0.25rem 0.5rem;
+          border-radius: 4px;
+          font-size: 0.85rem;
+
+          &.qualified {
+            color: #28a745;
+            background: #d4edda;
+          }
+
+          &.close {
+            color: #856404;
+            background: #fff3cd;
+          }
+
+          &.not-eligible {
+            color: #721c24;
+            background: #f8d7da;
+          }
+
+          &.overall-value {
+            font-size: 0.95rem;
+          }
+        }
+      }
+    }
+  }
+}
+
 .aps-summary {
   padding: 1rem 1.5rem;
   background: #f8f9fa;

@@ -1,5 +1,5 @@
 <div class="app-container">
-  <header class="app-header">
+  <header class="app-header" role="banner">
     <div class="header-content">
       <img [src]="logoPath()" alt="Learner's Career Path" class="app-logo" />
       <div class="header-text">
@@ -9,7 +9,7 @@
     </div>
   </header>
 
-  <main class="app-main">
+  <main id="main-content" class="app-main" role="main">
     <app-announcements
       [selectedCountry]="selectedCountryValue()"
       [selectedCareer]="selectedCareerValue()"
@@ -40,6 +40,7 @@
     <app-career-selector 
       [selectedCareer]="selectedCareerValue()"
       [selectedCountry]="selectedCountryValue()"
+      [grades]="gradesValue()"
       (careerChange)="onCareerChange($event)">
     </app-career-selector>
     
@@ -54,14 +55,6 @@
       [career]="selectedCareerValue()"
       [selectedCountry]="selectedCountryValue()">
     </app-progress-charts>
-    
-    <app-study-resources 
-      [selectedCountry]="selectedCountryValue()"
-      [selectedGradeLevel]="selectedGradeLevelValue()"
-      [selectedSubjects]="selectedSubjectsValue()"
-      [subjectsNeedingImprovement]="subjectsNeedingImprovementValue()"
-      [selectedCareer]="selectedCareerValue()">
-    </app-study-resources>
   </main>
 </div>
 

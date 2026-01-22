@@ -27,20 +27,20 @@ export class ProgressChartsComponent implements OnChanges {
 
   constructor(private improvementService: ImprovementService) {}
 
-  ngOnChanges(changes: SimpleChanges) {
+  async ngOnChanges(changes: SimpleChanges) {
     if (this.grades && this.career) {
-      this.calculateProgress();
+      await this.calculateProgress();
     } else {
       this.subjectProgress = [];
       this.overallProgress = 0;
     }
   }
 
-  private calculateProgress() {
+  private async calculateProgress() {
     if (!this.grades || !this.career) return;
 
     const countryCode = this.selectedCountry?.code || 'ZA';
-    const improvements = this.improvementService.calculateImprovements(this.grades, this.career, countryCode);
+    const improvements = await this.improvementService.calculateImprovements(this.grades, this.career, countryCode);
     const requirements = this.career.minGrades || {};
     const processedRequirements = this.processRequirementsForDisplay(requirements, countryCode);
     

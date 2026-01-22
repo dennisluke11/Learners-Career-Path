@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import { LoggingService } from './logging.service';
 
 interface RateLimitState {
   requests: number[];
@@ -119,7 +120,7 @@ export class GeminiRateLimitService {
     try {
       localStorage.setItem('gemini_rate_limit_state', JSON.stringify(this.state));
     } catch (error) {
-      console.warn('Failed to save rate limit state:', error);
+      // Silently fail - rate limit tracking may be inaccurate
     }
   }
 

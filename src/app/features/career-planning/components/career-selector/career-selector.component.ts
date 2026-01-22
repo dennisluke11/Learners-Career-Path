@@ -1,7 +1,11 @@
 import { Component, Output, EventEmitter, Input, OnChanges, SimpleChanges } from '@angular/core';
 import { CareersService } from '../../services/careers.service';
-import { Career } from '../../../../shared/models/career.model';
+import { Career, QualificationLevel } from '../../../../shared/models/career.model';
 import { Country } from '../../../../shared/models/country.model';
+import { Grades } from '../../../../shared/models/grades.model';
+import { UniversityDialogComponent } from '../../../../shared/components/university-dialog/university-dialog.component';
+import { SubjectsService } from '../../../../shared/services/subjects.service';
+import { EitherOrGroup } from '../../../../shared/models/subject.model';
 
 @Component({
   selector: 'app-career-selector',
@@ -11,14 +15,43 @@ import { Country } from '../../../../shared/models/country.model';
 export class CareerSelectorComponent implements OnChanges {
   @Input() selectedCareer: Career | null = null;
   @Input() selectedCountry: Country | null = null;
+  @Input() grades: Grades | null = null;
   @Output() careerChange = new EventEmitter<Career>();
 
   careers: Career[] = [];
   loading = false;
   error: string | null = null;
   displayRequirements: { [subject: string]: number } = {};
+  
+  // University dialog state
+  showUniversityDialog = false;
+  selectedQualificationLevel: QualificationLevel | null = null;
+  hasEitherOrGroups = false;
 
   getObjectKeys = Object.keys;
+  isArray = Array.isArray;
+  private eitherOrGroupsCache: { [countryCode: string]: EitherOrGroup[] } = {};
+
+  /**
+   * Check if displayRequirements contains any either/or subjects
+   * Helper method for template (can't use arrow functions in Angular templates)
+   */
+  hasEitherOrSubjects(): boolean {
+    if (!this.displayRequirements || !this.hasEitherOrGroups) {
+      return false;
+    }
+    const keys = Object.keys(this.displayRequirements);
+    return keys.some(key => key.includes(' OR '));
+  }
+  
+  hasUniversitySources(level: any): boolean {
+    if (!level || !level.sources) return false;
+    if (Array.isArray(level.sources)) {
+      return level.sources.length > 0 && level.sources.some((s: any) => s && s.institution);
+    }
+    return !!level.sources.institution;
+  }
+  
   displayQualificationLevels: Array<{
     level: string;
     nqfLevel?: number;
@@ -33,7 +66,10 @@ export class CareerSelectorComponent implements OnChanges {
     };
   }> = [];
 
-  constructor(private careersService: CareersService) {
+  constructor(
+    private careersService: CareersService,
+    private subjectsService: SubjectsService
+  ) {
     this.loadCareers();
   }
 
@@ -97,14 +133,34 @@ export class CareerSelectorComponent implements OnChanges {
           }
         }
         
-        this.displayRequirements = this.processRequirementsForDisplay(career.minGrades || {});
+        this.displayRequirements = await this.processRequirementsForDisplay(career.minGrades || {});
+        
+        // Check if there are either/or groups for this country
+        const countryCode = this.selectedCountry?.code || 'ZA';
+        let eitherOrGroups = this.eitherOrGroupsCache[countryCode];
+        if (!eitherOrGroups) {
+          try {
+            eitherOrGroups = await this.subjectsService.getEitherOrGroups(countryCode);
+            this.eitherOrGroupsCache[countryCode] = eitherOrGroups;
+          } catch (error) {
+            eitherOrGroups = [];
+          }
+        }
+        this.hasEitherOrGroups = eitherOrGroups.length > 0;
         
         if (career.qualificationLevels && this.selectedCountry) {
           const qualLevels = career.qualificationLevels[this.selectedCountry.code] || [];
-          this.displayQualificationLevels = qualLevels.map(level => ({
-            ...level,
-            minGrades: this.processRequirementsForDisplay(level.minGrades || {})
-          }));
+          const processedLevels = await Promise.all(
+            qualLevels.map(async level => ({
+              level: level.level,
+              nqfLevel: level.nqfLevel,
+              minGrades: await this.processRequirementsForDisplay(level.minGrades || {}),
+              aps: level.aps,
+              notes: level.notes,
+              sources: level.sources // Preserve sources for university dialog
+            }))
+          );
+          this.displayQualificationLevels = processedLevels;
         } else {
           this.displayQualificationLevels = [];
         }
@@ -119,39 +175,68 @@ export class CareerSelectorComponent implements OnChanges {
     }
   }
 
-  private processRequirementsForDisplay(requirements: { [subject: string]: number }): { [subject: string]: number } {
-    if (!this.selectedCountry || this.selectedCountry.code !== 'ZA') {
+  private async processRequirementsForDisplay(requirements: { [subject: string]: number }): Promise<{ [subject: string]: number }> {
+    if (!this.selectedCountry) {
       return requirements;
     }
 
+    const countryCode = this.selectedCountry.code || 'ZA';
+    
+    // Get either/or groups for this country (backend-driven)
+    let eitherOrGroups = this.eitherOrGroupsCache[countryCode];
+    if (!eitherOrGroups) {
+      try {
+        eitherOrGroups = await this.subjectsService.getEitherOrGroups(countryCode);
+        this.eitherOrGroupsCache[countryCode] = eitherOrGroups;
+      } catch (error) {
+        console.warn(`[CareerSelectorComponent] Could not fetch either/or groups for ${countryCode}:`, error);
+        eitherOrGroups = [];
+      }
+    }
+
     const processed: { [subject: string]: number } = {};
+    const processedSubjects = new Set<string>();
 
-    if (requirements['Math'] !== undefined && requirements['MathLiteracy'] !== undefined) {
-      const minRequired = Math.min(requirements['Math'], requirements['MathLiteracy']);
-      processed['Mathematics OR Mathematical Literacy'] = minRequired;
-    } else if (requirements['Math'] !== undefined) {
-      processed['Mathematics'] = requirements['Math'];
-    } else if (requirements['MathLiteracy'] !== undefined) {
-      processed['Mathematical Literacy'] = requirements['MathLiteracy'];
+    // Process either/or groups first
+    for (const group of eitherOrGroups) {
+      const groupSubjectsInRequirements = group.subjects.filter(subj => requirements[subj] !== undefined);
+      
+      if (groupSubjectsInRequirements.length > 0) {
+        // Calculate minimum required grade from the group
+        const minRequired = Math.min(...groupSubjectsInRequirements.map(subj => requirements[subj]));
+        processed[group.description || group.subjects.join(' OR ')] = minRequired;
+        
+        // Mark all subjects in group as processed
+        group.subjects.forEach(subj => processedSubjects.add(subj));
+      }
     }
 
-    if (requirements['English'] !== undefined && requirements['EnglishFAL'] !== undefined) {
-      const minRequired = Math.min(requirements['English'], requirements['EnglishFAL']);
-      processed['English (Home Language) OR English (First Additional Language)'] = minRequired;
-    } else if (requirements['English'] !== undefined) {
-      processed['English (Home Language)'] = requirements['English'];
-    } else if (requirements['EnglishFAL'] !== undefined) {
-      processed['English (First Additional Language)'] = requirements['EnglishFAL'];
-    }
-
+    // Add remaining subjects (not in either/or groups)
     for (const subject in requirements) {
-      if (subject !== 'Math' && subject !== 'MathLiteracy' && 
-          subject !== 'English' && subject !== 'EnglishFAL') {
+      if (!processedSubjects.has(subject)) {
         processed[subject] = requirements[subject];
       }
     }
 
     return processed;
+  }
+
+  openUniversityDialog(level: any) {
+    // Convert display level to QualificationLevel format
+    this.selectedQualificationLevel = {
+      level: level.level as 'Degree' | 'BTech' | 'Diploma' | 'Certificate',
+      nqfLevel: level.nqfLevel,
+      minGrades: level.minGrades,
+      aps: level.aps,
+      notes: level.notes,
+      sources: level.sources
+    };
+    this.showUniversityDialog = true;
+  }
+
+  closeUniversityDialog() {
+    this.showUniversityDialog = false;
+    this.selectedQualificationLevel = null;
   }
 }
 

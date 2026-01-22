@@ -34,13 +34,13 @@ export class AppComponent {
     private analyticsService: AnalyticsService
   ) {}
 
-  onGradesChange(grades: Grades) {
+  async onGradesChange(grades: Grades) {
     this.grades.set(grades);
     this.selectedSubjects.set(Object.keys(grades).filter(subject => grades[subject] > 0));
-    this.updateSubjectsNeedingImprovement();
+    await this.updateSubjectsNeedingImprovement();
   }
 
-  private updateSubjectsNeedingImprovement() {
+  private async updateSubjectsNeedingImprovement() {
     const career = this.selectedCareer();
     const grades = this.grades();
     if (!career || !grades) {
@@ -49,7 +49,7 @@ export class AppComponent {
     }
 
     const countryCode = this.selectedCountry()?.code || 'ZA';
-    const improvements = this.improvementService.calculateImprovements(grades, career, countryCode);
+    const improvements = await this.improvementService.calculateImprovements(grades, career, countryCode);
     this.subjectsNeedingImprovement.set(Object.keys(improvements));
   }
 
@@ -78,7 +78,7 @@ export class AppComponent {
         this.selectedCareer.set(countrySpecificCareer);
       }
     }
-    this.updateSubjectsNeedingImprovement();
+    await this.updateSubjectsNeedingImprovement();
   }
 
   async onCareerChange(career: Career) {
@@ -100,7 +100,7 @@ export class AppComponent {
       country: country?.code
     });
     
-    this.updateSubjectsNeedingImprovement();
+    await this.updateSubjectsNeedingImprovement();
   }
 
   onGradeLevelChange(gradeLevel: GradeLevel) {

@@ -247,3 +247,4 @@ updateMarketData()
     process.exit(1);
   });
 
+

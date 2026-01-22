@@ -1,0 +1,57 @@
+<div class="dialog-overlay" *ngIf="isOpen && announcement" (click)="onOverlayClick($event)">
+  <div class="dialog-container">
+    <!-- Header -->
+    <div class="dialog-header">
+      <div class="header-content">
+        <span class="header-icon">{{ getTypeIcon(announcement.type) }}</span>
+        <div class="header-text">
+          <h3>{{ announcement.title }}</h3>
+          <p class="type-badge">
+            {{ getTypeLabel(announcement.type) }}
+            <span *ngIf="announcement.isPaid" class="paid-badge">Sponsored</span>
+          </p>
+        </div>
+      </div>
+      <button class="close-btn" (click)="onClose()">×</button>
+    </div>
+
+    <!-- Content -->
+    <div class="dialog-content">
+      <!-- Company Info -->
+      <div *ngIf="announcement.company" class="company-info">
+        <img 
+          *ngIf="announcement.company.logo" 
+          [src]="announcement.company.logo" 
+          [alt]="announcement.company.name"
+          class="company-logo">
+        <div class="company-details">
+          <h4>{{ announcement.company.name }}</h4>
+          <p *ngIf="announcement.company.website" class="company-website">{{ announcement.company.website }}</p>
+          <p *ngIf="announcement.company.contact" class="company-contact">{{ announcement.company.contact }}</p>
+        </div>
+      </div>
+
+      <!-- Banner Image -->
+      <img 
+        *ngIf="announcement.image" 
+        [src]="announcement.image" 
+        [alt]="announcement.title"
+        class="announcement-banner">
+
+      <!-- Content -->
+      <div class="announcement-text" [innerHTML]="announcement.content"></div>
+
+      <!-- Action Button -->
+      <div *ngIf="announcement.actionButton" class="announcement-actions">
+        <button 
+          (click)="onActionClick()"
+          class="action-button"
+          [class.primary]="announcement.isPaid">
+          {{ announcement.actionButton.text || 'For More Details' }}
+          <span class="external-icon" *ngIf="announcement.actionButton.type === 'external'">↗</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+

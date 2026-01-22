@@ -2,6 +2,8 @@ import { Component, Input, OnChanges, SimpleChanges } from '@angular/core';
 import { Grades } from '../../../../shared/models/grades.model';
 import { Career } from '../../../../shared/models/career.model';
 import { ImprovementService } from '../../services/improvement.service';
+import { SubjectsService } from '../../../../shared/services/subjects.service';
+import { EitherOrGroup } from '../../../../shared/models/subject.model';
 
 export interface SubjectProgress {
   subject: string;
@@ -24,8 +26,12 @@ export class ProgressChartsComponent implements OnChanges {
 
   subjectProgress: SubjectProgress[] = [];
   overallProgress = 0;
+  private eitherOrGroups: EitherOrGroup[] = [];
 
-  constructor(private improvementService: ImprovementService) {}
+  constructor(
+    private improvementService: ImprovementService,
+    private subjectsService: SubjectsService
+  ) {}
 
   async ngOnChanges(changes: SimpleChanges) {
     if (this.grades && this.career) {
@@ -40,23 +46,35 @@ export class ProgressChartsComponent implements OnChanges {
     if (!this.grades || !this.career) return;
 
     const countryCode = this.selectedCountry?.code || 'ZA';
+    
+    // Load either/or groups for backend-driven processing
+    try {
+      this.eitherOrGroups = await this.subjectsService.getEitherOrGroups(countryCode);
+    } catch (error) {
+      this.eitherOrGroups = [];
+    }
+    
     const improvements = await this.improvementService.calculateImprovements(this.grades, this.career, countryCode);
     const requirements = this.career.minGrades || {};
-    const processedRequirements = this.processRequirementsForDisplay(requirements, countryCode);
+    const processedRequirements = await this.processRequirementsForDisplay(requirements, countryCode);
     
     this.subjectProgress = Object.keys(processedRequirements).map(subject => {
       const required = processedRequirements[subject];
       
       let current = 0;
       if (subject.includes(' OR ')) {
-        if (subject.includes('Mathematics') || subject.includes('Mathematical Literacy')) {
-          const mathGrade = this.getGradeForSubject('Math', countryCode);
-          const mathLitGrade = this.getGradeForSubject('MathLiteracy', countryCode);
-          current = Math.max(mathGrade, mathLitGrade);
-        } else if (subject.includes('English')) {
-          const engGrade = this.getGradeForSubject('English', countryCode);
-          const engFALGrade = this.getGradeForSubject('EnglishFAL', countryCode);
-          current = Math.max(engGrade, engFALGrade);
+        // Find the either/or group that matches this subject description
+        const matchingGroup = this.eitherOrGroups.find(group => 
+          group.description === subject || group.subjects?.some(s => subject.includes(s))
+        );
+        
+        if (matchingGroup && matchingGroup.subjects) {
+          // Get the maximum grade from all subjects in the either/or group
+          current = Math.max(...matchingGroup.subjects.map(s => this.getGradeForSubject(s, countryCode)));
+        } else {
+          // Fallback: try to extract subject names from the "OR" description
+          const subjectNames = subject.split(' OR ').map(s => s.trim());
+          current = Math.max(...subjectNames.map(s => this.getGradeForSubject(s, countryCode)));
         }
       } else {
         current = this.getGradeForSubject(subject, countryCode);
@@ -91,34 +109,38 @@ export class ProgressChartsComponent implements OnChanges {
     }
   }
 
-  private processRequirementsForDisplay(requirements: { [subject: string]: number }, countryCode: string): { [subject: string]: number } {
-    if (countryCode !== 'ZA') {
+  private async processRequirementsForDisplay(requirements: { [subject: string]: number }, countryCode: string): Promise<{ [subject: string]: number }> {
+    // If no either/or groups, return requirements as-is
+    if (!this.eitherOrGroups || this.eitherOrGroups.length === 0) {
       return requirements;
     }
 
     const processed: { [subject: string]: number } = {};
+    const processedSubjects = new Set<string>();
 
-    if (requirements['Math'] !== undefined && requirements['MathLiteracy'] !== undefined) {
-      const minRequired = Math.min(requirements['Math'], requirements['MathLiteracy']);
-      processed['Mathematics OR Mathematical Literacy'] = minRequired;
-    } else if (requirements['Math'] !== undefined) {
-      processed['Mathematics'] = requirements['Math'];
-    } else if (requirements['MathLiteracy'] !== undefined) {
-      processed['Mathematical Literacy'] = requirements['MathLiteracy'];
+    // Process each either/or group
+    for (const group of this.eitherOrGroups) {
+      if (!group.subjects || group.subjects.length < 2) continue;
+
+      // Check if all subjects in the group are in requirements
+      const groupSubjectsInRequirements = group.subjects.filter(subj => requirements[subj] !== undefined);
+      
+      if (groupSubjectsInRequirements.length > 0) {
+        // Calculate minimum required grade for the group
+        const minRequired = Math.min(...groupSubjectsInRequirements.map(subj => requirements[subj]));
+        
+        // Use group description or create a description from subject names
+        const displayName = group.description || group.subjects.join(' OR ');
+        processed[displayName] = minRequired;
+        
+        // Mark all subjects in this group as processed
+        group.subjects.forEach(subj => processedSubjects.add(subj));
+      }
     }
 
-    if (requirements['English'] !== undefined && requirements['EnglishFAL'] !== undefined) {
-      const minRequired = Math.min(requirements['English'], requirements['EnglishFAL']);
-      processed['English (Home Language) OR English (First Additional Language)'] = minRequired;
-    } else if (requirements['English'] !== undefined) {
-      processed['English (Home Language)'] = requirements['English'];
-    } else if (requirements['EnglishFAL'] !== undefined) {
-      processed['English (First Additional Language)'] = requirements['EnglishFAL'];
-    }
-
+    // Add remaining subjects that aren't in any either/or group
     for (const subject in requirements) {
-      if (subject !== 'Math' && subject !== 'MathLiteracy' && 
-          subject !== 'English' && subject !== 'EnglishFAL') {
+      if (!processedSubjects.has(subject)) {
         processed[subject] = requirements[subject];
       }
     }

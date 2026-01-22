@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { SubjectMapping, getSubjectsForCountry, CountrySubjectsData, EitherOrGroup } from '../models/subject.model';
 import { FirebaseService } from '../../core/services/firebase.service';
 import { CacheService } from '../../core/services/cache.service';
+import { LoggingService } from '../../core/services/logging.service';
 
 @Injectable({ providedIn: 'root' })
 export class SubjectsService {
@@ -10,7 +11,8 @@ export class SubjectsService {
 
   constructor(
     private firebaseService: FirebaseService,
-    private cacheService: CacheService
+    private cacheService: CacheService,
+    private loggingService: LoggingService
   ) {}
 
   async getSubjectsForCountry(countryCode: string): Promise<SubjectMapping[]> {
@@ -21,15 +23,30 @@ export class SubjectsService {
   async getCountrySubjectsData(countryCode: string): Promise<CountrySubjectsData> {
     const cacheKey = `countrySubjectsData_${countryCode}`;
     
-    // Check in-memory cache first
+    // Check in-memory cache first, but verify it has eitherOrGroups
     if (this.countryDataCache[countryCode]) {
-      return this.countryDataCache[countryCode];
+      const cached = this.countryDataCache[countryCode];
+      // If cache exists but eitherOrGroups is missing, refresh from Firestore
+      if (cached.eitherOrGroups === undefined || (Array.isArray(cached.eitherOrGroups) && cached.eitherOrGroups.length === 0)) {
+        this.loggingService.debug(`[SubjectsService] Cache for ${countryCode} missing eitherOrGroups, refreshing from Firestore...`);
+        // Clear cache and fetch fresh
+        delete this.countryDataCache[countryCode];
+        this.cacheService.remove(cacheKey);
+      } else {
+        return cached;
+      }
     }
     
     const cached = this.cacheService.get<CountrySubjectsData>(cacheKey);
     if (cached && this.cacheService.isFresh(cacheKey, this.CACHE_TTL)) {
-      this.countryDataCache[countryCode] = cached;
-      return cached;
+      // Verify cached data has eitherOrGroups
+      if (!cached.eitherOrGroups || cached.eitherOrGroups.length === 0) {
+        this.loggingService.debug(`[SubjectsService] Cached data for ${countryCode} missing eitherOrGroups, refreshing...`);
+        this.cacheService.remove(cacheKey);
+      } else {
+        this.countryDataCache[countryCode] = cached;
+        return cached;
+      }
     }
 
     if (this.firebaseService.isAvailable()) {
@@ -43,6 +60,11 @@ export class SubjectsService {
             mandatorySubjects: countrySubjects.mandatorySubjects || []
           };
           
+          this.loggingService.debug(`[SubjectsService] Loaded data for ${countryCode}:`, {
+            subjectsCount: data.subjects.length,
+            eitherOrGroupsCount: data.eitherOrGroups?.length || 0
+          });
+          
           this.cacheService.set(cacheKey, data, this.CACHE_TTL);
           this.countryDataCache[countryCode] = data;
           return data;
@@ -52,7 +74,7 @@ export class SubjectsService {
           this.countryDataCache[countryCode] = cached;
           return cached;
         }
-        console.error(`Error fetching subjects for ${countryCode} from Firebase:`, error);
+        this.loggingService.error(`Error fetching subjects for ${countryCode} from Firebase:`, error);
         throw new Error(`Subjects not found for ${countryCode} in Firestore. Please ensure countrySubjects collection is populated.`);
       }
     }
@@ -62,7 +84,7 @@ export class SubjectsService {
 
   async getEitherOrGroups(countryCode: string): Promise<EitherOrGroup[]> {
     const data = await this.getCountrySubjectsData(countryCode);
-    return data.eitherOrGroups || [];
+    return (data.eitherOrGroups && Array.isArray(data.eitherOrGroups)) ? data.eitherOrGroups : [];
   }
 
   async getMandatorySubjects(countryCode: string): Promise<string[]> {

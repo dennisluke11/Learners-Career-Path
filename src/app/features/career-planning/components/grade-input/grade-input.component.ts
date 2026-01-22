@@ -50,7 +50,15 @@ export class GradeInputComponent implements OnChanges, OnDestroy {
   }
 
   private async loadSubjects(countryCode: string) {
+    // Load subjects first
     this.subjectMappings = await this.subjectsService.getSubjectsForCountry(countryCode);
+    
+    // Load either/or groups separately to catch any errors
+    try {
+      this.eitherOrGroups = await this.subjectsService.getEitherOrGroups(countryCode);
+    } catch (error) {
+      this.eitherOrGroups = [];
+    }
     
     // Rebuild form with new subjects
     const newForm = this.fb.group({});
@@ -73,33 +81,29 @@ export class GradeInputComponent implements OnChanges, OnDestroy {
     
     this.gradeForm = newForm;
     
-    try {
-      this.eitherOrGroups = await this.subjectsService.getEitherOrGroups(countryCode);
-      
-      for (const group of this.eitherOrGroups) {
-        if (group.subjects.length >= 2) {
-          // For groups with 2+ subjects, set up validation
-          // Default: only one subject from the group can be entered (maxAllowed: 1)
-          const maxAllowed = group.maxAllowed ?? 1;
-          
-          if (maxAllowed === 1) {
-            // Only one subject allowed - set up mutual exclusivity
-            for (let i = 0; i < group.subjects.length; i++) {
-              for (let j = i + 1; j < group.subjects.length; j++) {
-                this.setupEitherOrValidation(this.gradeForm, group.subjects[i], group.subjects[j]);
-              }
+    // Set up either/or validation
+    for (const group of this.eitherOrGroups) {
+      if (group.subjects && group.subjects.length >= 2) {
+        const maxAllowed = group.maxAllowed ?? 1;
+        
+        if (maxAllowed === 1) {
+          // Only one subject allowed - set up mutual exclusivity
+          for (let i = 0; i < group.subjects.length; i++) {
+            for (let j = i + 1; j < group.subjects.length; j++) {
+              this.setupEitherOrValidation(this.gradeForm, group.subjects[i], group.subjects[j]);
             }
           }
-          // For maxAllowed > 1, we could implement more complex validation if needed
         }
       }
-    } catch (error) {
-      console.warn(`[GradeInputComponent] Could not load either/or groups for ${countryCode}:`, error);
-      // Fallback: continue without either/or validation
     }
     
-    this.onGradesChange(); // Emit updated grades
-    this.cdr.detectChanges(); // Force change detection after form rebuild
+    // Emit updated grades
+    this.onGradesChange();
+    
+    // Force change detection ONCE after everything is loaded
+    setTimeout(() => {
+      this.cdr.detectChanges();
+    }, 0);
   }
 
   private setupEitherOrValidation(form: FormGroup, control1Name: string, control2Name: string) {
@@ -273,11 +277,21 @@ export class GradeInputComponent implements OnChanges, OnDestroy {
   }
 
   getRequiredSubjects(): SubjectMapping[] {
+    // Include all subjects that are either:
+    // 1. Marked as required: true, OR
+    // 2. Part of an either/or group (even if required: false)
     const subjectsInEitherOrGroups = new Set<string>();
-    for (const group of this.eitherOrGroups) {
-      group.subjects.forEach(subj => subjectsInEitherOrGroups.add(subj));
+    
+    // Build set of subjects in either/or groups
+    if (this.eitherOrGroups && this.eitherOrGroups.length > 0) {
+      for (const group of this.eitherOrGroups) {
+        if (group.subjects && Array.isArray(group.subjects)) {
+          group.subjects.forEach(subj => subjectsInEitherOrGroups.add(subj));
+        }
+      }
     }
     
+    // Filter subjects: include if required OR in an either/or group
     return this.subjectMappings.filter(s => 
       s.required || subjectsInEitherOrGroups.has(s.standardName)
     );
@@ -296,22 +310,34 @@ export class GradeInputComponent implements OnChanges, OnDestroy {
 
 
   isSubjectHidden(standardName: string): boolean {
+    // Don't hide if either/or groups aren't loaded yet
+    if (!this.eitherOrGroups || this.eitherOrGroups.length === 0) {
+      return false;
+    }
+    
+    // Don't hide if form isn't ready
+    if (!this.gradeForm) {
+      return false;
+    }
+    
+    // Only hide if the subject is in an either/or group AND another subject in that group has a value
     for (const group of this.eitherOrGroups) {
-      if (group.subjects.includes(standardName)) {
+      if (group.subjects && group.subjects.includes(standardName)) {
         for (const otherSubject of group.subjects) {
           if (otherSubject !== standardName) {
             const otherControl = this.gradeForm.get(otherSubject);
             if (otherControl) {
               const otherValue = otherControl.value;
-              if (otherValue && otherValue !== '' && otherValue !== null && otherValue !== undefined) {
-                return true;
+              // Check if the other subject has a non-empty, non-zero value
+              if (otherValue !== null && otherValue !== undefined && otherValue !== '' && otherValue !== 0) {
+                return true; // Hide this subject because the other one has a value
               }
             }
           }
         }
       }
     }
-    return false;
+    return false; // Don't hide - either not in an either/or group, or no other subject has a value
   }
 }
 

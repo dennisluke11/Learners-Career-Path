@@ -3,6 +3,8 @@ import { Chart, ChartConfiguration, ChartData, registerables } from 'chart.js';
 import { Grades } from '../../../../shared/models/grades.model';
 import { Career } from '../../../../shared/models/career.model';
 import { ImprovementService } from '../../services/improvement.service';
+import { SubjectsService } from '../../../../shared/services/subjects.service';
+import { EitherOrGroup } from '../../../../shared/models/subject.model';
 
 // Register Chart.js components
 Chart.register(...registerables);
@@ -20,16 +22,19 @@ export class ImprovementDisplayComponent implements OnChanges, AfterViewInit, On
 
   improvements: { [subject: string]: number } = {};
   private improvementChart: Chart<'bar'> | null = null;
+  private eitherOrGroups: EitherOrGroup[] = [];
   Object = Object;
 
   constructor(
-    private improvementService: ImprovementService
+    private improvementService: ImprovementService,
+    private subjectsService: SubjectsService
   ) {}
 
   async ngAfterViewInit() {
     setTimeout(async () => {
       if (this.grades && this.career) {
         const countryCode = this.selectedCountry?.code || 'ZA';
+        await this.loadEitherOrGroups(countryCode);
         this.improvements = await this.improvementService.calculateImprovements(this.grades, this.career, countryCode);
       }
       this.updateOrCreateChart();
@@ -39,6 +44,7 @@ export class ImprovementDisplayComponent implements OnChanges, AfterViewInit, On
   async ngOnChanges(changes: SimpleChanges) {
     if (this.grades && this.career) {
       const countryCode = this.selectedCountry?.code || 'ZA';
+      await this.loadEitherOrGroups(countryCode);
       this.improvements = await this.improvementService.calculateImprovements(this.grades, this.career, countryCode);
       
       requestAnimationFrame(() => {
@@ -49,6 +55,14 @@ export class ImprovementDisplayComponent implements OnChanges, AfterViewInit, On
     } else {
       this.improvements = {};
       this.destroyChart();
+    }
+  }
+
+  private async loadEitherOrGroups(countryCode: string): Promise<void> {
+    try {
+      this.eitherOrGroups = await this.subjectsService.getEitherOrGroups(countryCode);
+    } catch (error) {
+      this.eitherOrGroups = [];
     }
   }
 
@@ -116,28 +130,33 @@ export class ImprovementDisplayComponent implements OnChanges, AfterViewInit, On
               const subject = chartData.labels[context.dataIndex] as string;
               const improvement = this.improvements[subject];
               
-              // Handle either/or subjects
+              // Handle either/or subjects using backend-driven groups
               let current = 0;
               let required = 0;
               
-              if (subject.includes(' OR ')) {
-                if (subject.includes('Mathematics') || subject.includes('Mathematical Literacy')) {
-                  const mathGrade = this.grades!['Math'] || this.grades!['MathLiteracy'] || 0;
-                  const mathLitGrade = this.grades!['MathLiteracy'] || this.grades!['Math'] || 0;
-                  current = Math.max(mathGrade, mathLitGrade);
-                  const mathReq = this.career!.minGrades['Math'] || 0;
-                  const mathLitReq = this.career!.minGrades['MathLiteracy'] || 0;
-                  required = Math.min(mathReq, mathLitReq);
-                } else if (subject.includes('English')) {
-                  const engGrade = this.grades!['English'] || this.grades!['EnglishFAL'] || 0;
-                  const engFALGrade = this.grades!['EnglishFAL'] || this.grades!['English'] || 0;
-                  current = Math.max(engGrade, engFALGrade);
-                  const engReq = this.career!.minGrades['English'] || 0;
-                  const engFALReq = this.career!.minGrades['EnglishFAL'] || 0;
-                  required = Math.min(engReq, engFALReq);
-                }
+              // Check if this subject is part of an either/or group
+              // The improvement service uses group.description or group.subjects.join(' OR ') as the key
+              const eitherOrGroup = this.eitherOrGroups.find(group => {
+                const groupKey = group.description || group.subjects.join(' OR ');
+                return groupKey === subject;
+              });
+              
+              if (eitherOrGroup) {
+                // Find the best grade from the group
+                const gradesForGroup = eitherOrGroup.subjects
+                  .map(subj => this.getGradeForSubject(subj))
+                  .filter(g => g > 0);
+                
+                // Find the minimum required from the group
+                const requirementsForGroup = eitherOrGroup.subjects
+                  .map(subj => this.career!.minGrades[subj] || 0)
+                  .filter(r => r > 0);
+                
+                current = gradesForGroup.length > 0 ? Math.max(...gradesForGroup) : 0;
+                required = requirementsForGroup.length > 0 ? Math.min(...requirementsForGroup) : 0;
               } else {
-                current = this.grades![subject] || 0;
+                // Regular subject (not in either/or group)
+                current = this.getGradeForSubject(subject);
                 required = this.career!.minGrades[subject] || 0;
               }
               
@@ -243,6 +262,37 @@ export class ImprovementDisplayComponent implements OnChanges, AfterViewInit, On
       this.improvementChart.destroy();
       this.improvementChart = null;
     }
+  }
+
+  /**
+   * Get grade for a subject, handling either/or groups and IT/CAT mapping
+   */
+  private getGradeForSubject(subjectName: string): number {
+    if (!this.grades) return 0;
+
+    // Check exact match
+    if (this.grades[subjectName] !== undefined && this.grades[subjectName] !== null) {
+      return this.grades[subjectName] || 0;
+    }
+
+    // Handle IT/CAT mapping
+    if (subjectName === 'IT' && this.grades['CAT'] !== undefined && this.grades['CAT'] !== null) {
+      return this.grades['CAT'] || 0;
+    }
+    if (subjectName === 'CAT' && this.grades['IT'] !== undefined && this.grades['IT'] !== null) {
+      return this.grades['IT'] || 0;
+    }
+
+    // Check case-insensitive match
+    const normalizedLower = subjectName.toLowerCase();
+    for (const gradeKey in this.grades) {
+      if (this.grades[gradeKey] === undefined || this.grades[gradeKey] === null) continue;
+      if (gradeKey.toLowerCase() === normalizedLower) {
+        return this.grades[gradeKey] || 0;
+      }
+    }
+
+    return 0;
   }
 }
 

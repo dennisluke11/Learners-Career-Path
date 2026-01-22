@@ -55,3 +55,68 @@
   }
 }
 
+// Mobile Responsive Design - Following WCAG and Mobile-First Best Practices
+@media (max-width: 768px) {
+  .country-selector-container {
+    padding: 1.25rem 1rem;
+    margin-bottom: 1.25rem;
+
+    h2 {
+      font-size: 1.2rem;
+      margin-bottom: 0.875rem;
+    }
+
+    .select-wrapper {
+      margin-bottom: 0.875rem;
+    }
+
+    .country-select {
+      padding: 0.875rem;
+      font-size: 16px; // Prevents zoom on iOS
+      min-height: 44px; // WCAG touch target minimum
+    }
+
+    .selected-country-info {
+      margin-top: 0.875rem;
+      padding: 0.625rem;
+
+      p {
+        font-size: 0.85rem;
+        line-height: 1.4;
+      }
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .country-selector-container {
+    padding: 1rem 0.75rem;
+    margin-bottom: 1rem;
+
+    h2 {
+      font-size: 1.1rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .select-wrapper {
+      margin-bottom: 0.75rem;
+    }
+
+    .country-select {
+      padding: 0.75rem;
+      font-size: 16px; // Prevents zoom on iOS
+      min-height: 44px; // WCAG touch target minimum
+    }
+
+    .selected-country-info {
+      margin-top: 0.75rem;
+      padding: 0.5rem;
+
+      p {
+        font-size: 0.8rem;
+        line-height: 1.4;
+      }
+    }
+  }
+}
+

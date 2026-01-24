@@ -5,6 +5,7 @@ import { Career } from '../../../../shared/models/career.model';
 import { ImprovementService } from '../../services/improvement.service';
 import { SubjectsService } from '../../../../shared/services/subjects.service';
 import { EitherOrGroup } from '../../../../shared/models/subject.model';
+import { AnalyticsService } from '../../../../core/services/analytics.service';
 
 // Register Chart.js components
 Chart.register(...registerables);
@@ -93,8 +94,23 @@ export class ImprovementDisplayComponent implements OnChanges, AfterViewInit, On
     return Object.keys(this.improvements).length > 0;
   }
 
+  /**
+   * Check if user has entered actual grades (not just empty object)
+   */
+  private hasEnteredGrades(): boolean {
+    if (!this.grades) return false;
+    // Check if there are any grade values entered (greater than 0)
+    return Object.values(this.grades).some(grade => 
+      grade !== null && grade !== undefined && grade > 0
+    );
+  }
+
   meetsAllRequirements(): boolean {
-    return !!this.grades && !!this.career && !this.hasImprovements();
+    // Only show congratulations if:
+    // 1. User has actually entered grades (not empty object)
+    // 2. A career is selected
+    // 3. There are no improvements needed
+    return this.hasEnteredGrades() && !!this.career && !this.hasImprovements();
   }
 
 

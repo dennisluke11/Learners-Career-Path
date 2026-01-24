@@ -6,6 +6,7 @@ import { CountrySelectorComponent } from './components/country-selector/country-
 import { GradeLevelSelectorComponent } from './components/grade-level-selector/grade-level-selector.component';
 import { AnnouncementsComponent } from './components/announcements/announcements.component';
 import { AnnouncementDialogComponent } from './components/announcement-dialog/announcement-dialog.component';
+import { AppFooterComponent } from './components/app-footer/app-footer.component';
 
 @NgModule({
   declarations: [
@@ -16,12 +17,14 @@ import { AnnouncementDialogComponent } from './components/announcement-dialog/an
   imports: [
     CommonModule,
     ReactiveFormsModule,
-    AnnouncementDialogComponent
+    AnnouncementDialogComponent,
+    AppFooterComponent
   ],
   exports: [
     CountrySelectorComponent,
     GradeLevelSelectorComponent,
     AnnouncementsComponent,
+    AppFooterComponent,
     CommonModule,
     ReactiveFormsModule
   ]

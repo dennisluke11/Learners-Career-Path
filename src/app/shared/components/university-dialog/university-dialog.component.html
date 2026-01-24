@@ -7,7 +7,7 @@
         <div class="header-text">
           <h3>Universities Offering {{ career?.name }}</h3>
           <p class="qualification-badge" *ngIf="qualificationLevel">
-            {{ qualificationLevel.level }} (NQF {{ qualificationLevel.nqfLevel || 'N/A' }})
+            {{ formatQualificationDisplay(qualificationLevel) }}
           </p>
         </div>
       </div>
@@ -24,9 +24,14 @@
     </div>
 
     <!-- Qualification Levels Status -->
-    <div class="qualification-levels-summary" *ngIf="qualificationLevelsStatus.length > 0">
-      <h4 class="summary-title">Your Qualification Status</h4>
-      <div class="levels-grid">
+    <div class="qualification-levels-summary" *ngIf="qualificationLevelsStatus.length > 0 && showQualificationLevels">
+      <div class="summary-header">
+        <h4 class="summary-title">Your Qualification Status</h4>
+        <button class="toggle-btn mobile-only" (click)="showQualificationLevels = !showQualificationLevels" aria-label="Toggle qualification levels">
+          {{ showQualificationLevels ? '−' : '+' }}
+        </button>
+      </div>
+      <div class="levels-grid" *ngIf="showQualificationLevels">
         <div 
           *ngFor="let levelStatus of qualificationLevelsStatus" 
           class="level-status-card"
@@ -37,7 +42,7 @@
             <span class="status-icon">{{ getStatusIcon(levelStatus.overallStatus) }}</span>
             <div class="level-info">
               <span class="level-name">{{ levelStatus.level }}</span>
-              <span class="nqf-level" *ngIf="levelStatus.nqfLevel">NQF {{ levelStatus.nqfLevel }}</span>
+              <span class="framework-level" *ngIf="getFrameworkDisplay(levelStatus)">{{ getFrameworkDisplay(levelStatus) }}</span>
             </div>
           </div>
           <div class="level-details">

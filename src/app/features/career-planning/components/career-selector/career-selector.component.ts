@@ -6,6 +6,7 @@ import { Grades } from '../../../../shared/models/grades.model';
 import { UniversityDialogComponent } from '../../../../shared/components/university-dialog/university-dialog.component';
 import { SubjectsService } from '../../../../shared/services/subjects.service';
 import { EitherOrGroup } from '../../../../shared/models/subject.model';
+import { formatQualificationLevel } from '../../../../shared/models/qualification-frameworks';
 
 @Component({
   selector: 'app-career-selector',
@@ -55,6 +56,8 @@ export class CareerSelectorComponent implements OnChanges {
   displayQualificationLevels: Array<{
     level: string;
     nqfLevel?: number;
+    frameworkName?: string;
+    frameworkLevel?: string | number;
     minGrades: { [subject: string]: number };
     aps?: number;
     notes?: string;
@@ -154,6 +157,8 @@ export class CareerSelectorComponent implements OnChanges {
             qualLevels.map(async level => ({
               level: level.level,
               nqfLevel: level.nqfLevel,
+              frameworkName: level.frameworkName,
+              frameworkLevel: level.frameworkLevel,
               minGrades: await this.processRequirementsForDisplay(level.minGrades || {}),
               aps: level.aps,
               notes: level.notes,
@@ -237,6 +242,17 @@ export class CareerSelectorComponent implements OnChanges {
   closeUniversityDialog() {
     this.showUniversityDialog = false;
     this.selectedQualificationLevel = null;
+  }
+
+  formatQualificationLevel(level: { level: string; nqfLevel?: number; frameworkName?: string; frameworkLevel?: string | number }): string {
+    const countryCode = this.selectedCountry?.code || 'ZA';
+    return formatQualificationLevel(
+      level.level,
+      countryCode,
+      level.nqfLevel,
+      level.frameworkName,
+      level.frameworkLevel
+    );
   }
 }
 

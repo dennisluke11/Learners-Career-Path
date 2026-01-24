@@ -5,8 +5,12 @@
  */
 
 const functions = require('firebase-functions');
+const admin = require('firebase-admin');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { createRateLimiter } = require('./rate-limiter');
+
+// Initialize Firebase Admin
+admin.initializeApp();
 
 // Initialize Gemini AI with API key from Firebase Functions config
 // Set using: firebase functions:config:set gemini.api_key="YOUR_KEY"
@@ -266,6 +270,252 @@ ${sanitizedCareerName ? `6. Explain how ${sanitizedSubject} relates to ${sanitiz
     res.status(500).json({
       error: 'Failed to generate study resources',
       message: 'An error occurred while generating study resources. Please try again later.'
+    });
+  }
+});
+
+/**
+ * Send push notification to all users in specified country(ies)
+ * Manual trigger endpoint for country-based notifications
+ * 
+ * Usage:
+ * curl -X POST https://your-function-url/sendCountryNotification \
+ *   -H "Content-Type: application/json" \
+ *   -d '{
+ *     "countries": ["ZA"],
+ *     "title": "New Scholarship Available!",
+ *     "body": "Check out the new opportunities for South African students",
+ *     "image": "https://example.com/image.jpg",
+ *     "data": {
+ *       "announcementId": "abc123",
+ *       "type": "scholarship"
+ *     }
+ *   }'
+ */
+exports.sendCountryNotification = functions.https.onRequest(async (req, res) => {
+  setCORSHeaders(req, res);
+  
+  // Apply rate limiting
+  rateLimiter(req, res, () => {});
+  if (res.headersSent) return;
+
+  if (req.method === 'OPTIONS') {
+    res.status(204).send('');
+    return;
+  }
+
+  if (req.method !== 'POST') {
+    res.status(405).send('Method Not Allowed');
+    return;
+  }
+
+  try {
+    const { countries, title, body, image, data } = req.body;
+
+    // Validate required fields
+    if (!countries || !Array.isArray(countries) || countries.length === 0) {
+      res.status(400).json({ 
+        error: 'Invalid countries',
+        message: 'countries must be a non-empty array of country codes (e.g., ["ZA", "KE"])'
+      });
+      return;
+    }
+
+    if (!title || typeof title !== 'string' || title.trim().length === 0) {
+      res.status(400).json({ 
+        error: 'Invalid title',
+        message: 'title is required and must be a non-empty string'
+      });
+      return;
+    }
+
+    if (!body || typeof body !== 'string' || body.trim().length === 0) {
+      res.status(400).json({ 
+        error: 'Invalid body',
+        message: 'body is required and must be a non-empty string'
+      });
+      return;
+    }
+
+    // Sanitize inputs
+    const sanitizedCountries = countries
+      .filter(code => typeof code === 'string' && code.trim().length > 0)
+      .map(code => code.trim().toUpperCase())
+      .slice(0, 10); // Limit to 10 countries max
+
+    if (sanitizedCountries.length === 0) {
+      res.status(400).json({ 
+        error: 'Invalid countries',
+        message: 'No valid country codes provided'
+      });
+      return;
+    }
+
+    const sanitizedTitle = title.trim().substring(0, 100);
+    const sanitizedBody = body.trim().substring(0, 500);
+    const sanitizedImage = image && typeof image === 'string' && image.trim().length > 0
+      ? image.trim().substring(0, 500)
+      : undefined;
+
+    // Get all FCM tokens for users in the specified countries
+    const db = admin.firestore();
+    const tokensRef = db.collection('fcmTokens');
+    
+    const tokensByCountry = {};
+    const results = {
+      totalSent: 0,
+      totalFailed: 0,
+      countries: {}
+    };
+
+    // Query tokens for each country
+    for (const countryCode of sanitizedCountries) {
+      try {
+        const snapshot = await tokensRef
+          .where('country', '==', countryCode)
+          .get();
+
+        const tokens = [];
+        snapshot.forEach(doc => {
+          const tokenData = doc.data();
+          if (tokenData.token) {
+            tokens.push(tokenData.token);
+          }
+        });
+
+        tokensByCountry[countryCode] = tokens;
+        results.countries[countryCode] = {
+          tokensFound: tokens.length,
+          sent: 0,
+          failed: 0
+        };
+      } catch (error) {
+        console.error(`Error querying tokens for country ${countryCode}:`, error);
+        results.countries[countryCode] = {
+          tokensFound: 0,
+          sent: 0,
+          failed: 0,
+          error: error.message
+        };
+      }
+    }
+
+    // Prepare notification payload
+    const notificationPayload = {
+      notification: {
+        title: sanitizedTitle,
+        body: sanitizedBody,
+        ...(sanitizedImage && { image: sanitizedImage })
+      },
+      data: {
+        ...(data && typeof data === 'object' ? data : {}),
+        click_action: 'FLUTTER_NOTIFICATION_CLICK' // For deep linking
+      },
+      android: {
+        priority: 'high',
+        notification: {
+          sound: 'default',
+          channelId: 'default'
+        }
+      },
+      apns: {
+        payload: {
+          aps: {
+            sound: 'default',
+            badge: 1
+          }
+        }
+      }
+    };
+
+    // Send notifications to all tokens
+    const allTokens = Object.values(tokensByCountry).flat();
+    
+    if (allTokens.length === 0) {
+      res.status(200).json({
+        success: true,
+        message: 'No tokens found for specified countries',
+        results
+      });
+      return;
+    }
+
+    // Send in batches (FCM allows up to 500 tokens per batch)
+    const batchSize = 500;
+    const batches = [];
+    
+    for (let i = 0; i < allTokens.length; i += batchSize) {
+      batches.push(allTokens.slice(i, i + batchSize));
+    }
+
+    // Send notifications
+    for (const batch of batches) {
+      try {
+        const response = await admin.messaging().sendEachForMulticast({
+          tokens: batch,
+          ...notificationPayload
+        });
+
+        // Track results
+        results.totalSent += response.successCount;
+        results.totalFailed += response.failureCount;
+
+        // Update country-specific results
+        // Note: This is approximate since we're batching across countries
+        // For exact per-country tracking, you'd need to send separately per country
+        response.responses.forEach((resp, index) => {
+          if (resp.success) {
+            // Find which country this token belongs to
+            const token = batch[index];
+            for (const [countryCode, tokens] of Object.entries(tokensByCountry)) {
+              if (tokens.includes(token) && results.countries[countryCode]) {
+                results.countries[countryCode].sent++;
+                break;
+              }
+            }
+          } else {
+            // Find which country this token belongs to
+            const token = batch[index];
+            for (const [countryCode, tokens] of Object.entries(tokensByCountry)) {
+              if (tokens.includes(token) && results.countries[countryCode]) {
+                results.countries[countryCode].failed++;
+                break;
+              }
+            }
+          }
+        });
+
+        // Clean up invalid tokens
+        response.responses.forEach((resp, index) => {
+          if (!resp.success && (
+            resp.error?.code === 'messaging/invalid-registration-token' ||
+            resp.error?.code === 'messaging/registration-token-not-registered'
+          )) {
+            // Remove invalid token from Firestore
+            const token = batch[index];
+            tokensRef.where('token', '==', token).get().then(snapshot => {
+              snapshot.forEach(doc => doc.ref.delete());
+            }).catch(err => console.error('Error deleting invalid token:', err));
+          }
+        });
+
+      } catch (error) {
+        console.error('Error sending notification batch:', error);
+        results.totalFailed += batch.length;
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Notifications sent to ${results.totalSent} devices across ${sanitizedCountries.length} country(ies)`,
+      results
+    });
+
+  } catch (error) {
+    console.error('Error in sendCountryNotification:', error);
+    res.status(500).json({
+      error: 'Failed to send notifications',
+      message: error.message || 'An error occurred while sending notifications'
     });
   }
 });

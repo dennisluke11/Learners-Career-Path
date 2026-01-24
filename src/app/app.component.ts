@@ -1,4 +1,7 @@
-import { Component, signal, computed } from '@angular/core';
+import { Component, signal, computed, OnInit, OnDestroy } from '@angular/core';
+import { Router, NavigationEnd } from '@angular/router';
+import { filter } from 'rxjs/operators';
+import { Subscription } from 'rxjs';
 import { Grades } from './shared/models/grades.model';
 import { Career } from './shared/models/career.model';
 import { Country } from './shared/models/country.model';
@@ -6,13 +9,15 @@ import { GradeLevel } from './shared/models/grade-level.model';
 import { CareersService } from './features/career-planning/services/careers.service';
 import { ImprovementService } from './features/career-planning/services/improvement.service';
 import { AnalyticsService } from './core/services/analytics.service';
+import { PushNotificationService } from './core/services/push-notification.service';
+import { TourService } from './core/services/tour.service';
 
 @Component({
   selector: 'app-root',
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.scss']
 })
-export class AppComponent {
+export class AppComponent implements OnInit, OnDestroy {
   grades = signal<Grades>({});
   selectedCareer = signal<Career | null>(null);
   selectedCountry = signal<Country | null>(null);
@@ -20,6 +25,8 @@ export class AppComponent {
   selectedSubjects = signal<string[]>([]);
   subjectsNeedingImprovement = signal<string[]>([]);
   logoPath = signal<string>('assets/logo.svg');
+  showMainContent = signal<boolean>(true);
+  private routerSubscription?: Subscription;
 
   gradesValue = computed(() => this.grades());
   selectedCareerValue = computed(() => this.selectedCareer());
@@ -31,8 +38,40 @@ export class AppComponent {
   constructor(
     private careersService: CareersService,
     private improvementService: ImprovementService,
-    private analyticsService: AnalyticsService
+    private analyticsService: AnalyticsService,
+    private pushNotificationService: PushNotificationService,
+    private router: Router,
+    private tourService: TourService
   ) {}
+
+  ngOnInit() {
+    this.routerSubscription = this.router.events
+      .pipe(filter((event): event is NavigationEnd => event instanceof NavigationEnd))
+      .subscribe((event) => {
+        const isStandalonePage = event.url === '/privacy' || event.url === '/terms' || event.url === '/contact';
+        this.showMainContent.set(!isStandalonePage);
+        
+        this.analyticsService.trackEvent('view', 'page_view', {
+          url: event.url,
+          componentName: 'AppComponent'
+        });
+      });
+    
+    const currentUrl = this.router.url;
+    const isStandalonePage = currentUrl === '/privacy' || currentUrl === '/terms' || currentUrl === '/contact';
+    this.showMainContent.set(!isStandalonePage);
+    
+    this.analyticsService.trackEvent('view', 'page_view', {
+      url: currentUrl,
+      componentName: 'AppComponent'
+    });
+  }
+
+  ngOnDestroy() {
+    if (this.routerSubscription) {
+      this.routerSubscription.unsubscribe();
+    }
+  }
 
   async onGradesChange(grades: Grades) {
     this.grades.set(grades);
@@ -68,6 +107,15 @@ export class AppComponent {
       countryCode: country.code
     });
     
+    // Initialize push notifications for the selected country
+    if (this.pushNotificationService.isAvailable()) {
+      try {
+        await this.pushNotificationService.initialize(country.code);
+      } catch (error) {
+        console.error('Failed to initialize push notifications:', error);
+      }
+    }
+    
     const career = this.selectedCareer();
     if (career && country) {
       const countrySpecificCareer = await this.careersService.getCareerForCountry(
@@ -93,7 +141,6 @@ export class AppComponent {
       this.selectedCareer.set(career);
     }
     
-    // Track career selection
     this.analyticsService.trackSelect('career_selected', career.name, {
       componentName: 'AppComponent',
       career: career.name,
@@ -106,12 +153,18 @@ export class AppComponent {
   onGradeLevelChange(gradeLevel: GradeLevel) {
     this.selectedGradeLevel.set(gradeLevel);
     
-    // Track grade level selection
     this.analyticsService.trackSelect('grade_level_selected', gradeLevel.displayName, {
       componentName: 'AppComponent',
       gradeLevel: gradeLevel.displayName,
       level: gradeLevel.level,
       country: this.selectedCountry()?.code
+    });
+  }
+
+  startTour() {
+    this.tourService.startTour();
+    this.analyticsService.trackClick('tour_started', undefined, 'button', 'Take a Tour', {
+      componentName: 'AppComponent'
     });
   }
 }

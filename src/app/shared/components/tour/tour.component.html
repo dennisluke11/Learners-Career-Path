@@ -1,0 +1,61 @@
+<div *ngIf="isActive" class="tour-container">
+  <!-- Overlay -->
+  <div class="tour-overlay" (click)="skipTour()"></div>
+  
+  <!-- Tooltip -->
+  <div 
+    class="tour-tooltip" 
+    [style.top.px]="tooltipPosition.top"
+    [style.left.px]="tooltipPosition.left"
+    *ngIf="currentStep">
+    
+    <!-- Progress indicator -->
+    <div class="tour-progress">
+      <div class="progress-bar">
+        <div class="progress-fill" [style.width.%]="progress"></div>
+      </div>
+      <span class="progress-text">Step {{ currentStepIndex + 1 }} of {{ tourService.tourSteps.length }}</span>
+    </div>
+
+    <!-- Content -->
+    <div class="tooltip-content">
+      <h3 class="tooltip-title">{{ currentStep.title }}</h3>
+      <p class="tooltip-description">{{ currentStep.description }}</p>
+    </div>
+
+    <!-- Actions -->
+    <div class="tooltip-actions">
+      <button 
+        type="button" 
+        class="btn-skip" 
+        (click)="skipTour()">
+        Skip Tour
+      </button>
+      <div class="nav-buttons">
+        <button 
+          type="button" 
+          class="btn-nav btn-prev" 
+          (click)="previousStep()"
+          [disabled]="isFirstStep"
+          *ngIf="!isLastStep">
+          ← Previous
+        </button>
+        <button 
+          type="button" 
+          class="btn-nav btn-next" 
+          (click)="nextStep()"
+          *ngIf="!isLastStep">
+          Next →
+        </button>
+        <button 
+          type="button" 
+          class="btn-nav btn-finish" 
+          (click)="completeTour()"
+          *ngIf="isLastStep">
+          Got it! ✓
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+

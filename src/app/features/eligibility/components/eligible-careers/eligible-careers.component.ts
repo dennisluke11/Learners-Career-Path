@@ -1,4 +1,4 @@
-import { Component, Input, OnChanges, SimpleChanges, OnDestroy } from '@angular/core';
+import { Component, Input, OnChanges, SimpleChanges, OnDestroy, AfterViewInit } from '@angular/core';
 import { Grades } from '../../../../shared/models/grades.model';
 import { Career, QualificationLevel } from '../../../../shared/models/career.model';
 import { Country } from '../../../../shared/models/country.model';
@@ -10,13 +10,14 @@ import { SubjectsService } from '../../../../shared/services/subjects.service';
 import { EitherOrGroup } from '../../../../shared/models/subject.model';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
+import { AnalyticsService } from '../../../../core/services/analytics.service';
 
 @Component({
   selector: 'app-eligible-careers',
   templateUrl: './eligible-careers.component.html',
   styleUrls: ['./eligible-careers.component.scss']
 })
-export class EligibleCareersComponent implements OnChanges, OnDestroy {
+export class EligibleCareersComponent implements OnChanges, OnDestroy, AfterViewInit {
   @Input() grades: Grades | null = null;
   @Input() selectedCountry: Country | null = null;
 
@@ -41,8 +42,16 @@ export class EligibleCareersComponent implements OnChanges, OnDestroy {
     private careersService: CareersService,
     private marketService: CareerMarketService,
     private improvementService: ImprovementService,
-    private subjectsService: SubjectsService
+    private subjectsService: SubjectsService,
+    private analyticsService: AnalyticsService
   ) {}
+
+  ngAfterViewInit(): void {
+    this.analyticsService.trackSectionView('eligible_careers', {
+      componentName: 'EligibleCareersComponent',
+      country: this.selectedCountry?.code
+    });
+  }
 
   ngOnDestroy(): void {
     this.destroy$.next();

@@ -1,0 +1,16 @@
+import { Component } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { RouterModule } from '@angular/router';
+
+@Component({
+  selector: 'app-contact',
+  standalone: true,
+  imports: [CommonModule, RouterModule],
+  templateUrl: './contact.component.html',
+  styleUrls: ['./contact.component.scss']
+})
+export class ContactComponent {
+  currentYear = new Date().getFullYear();
+  contactEmail = 'support@learnerscareerpath.com';
+}
+

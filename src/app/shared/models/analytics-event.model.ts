@@ -1,6 +1,6 @@
 export interface AnalyticsEvent {
   id?: string;
-  eventType: 'click' | 'view' | 'change' | 'submit' | 'select' | 'custom';
+  eventType: 'click' | 'view' | 'change' | 'submit' | 'select' | 'custom' | 'engagement' | 'conversion';
   eventName: string;
   componentName?: string;
   elementId?: string;
@@ -19,6 +19,22 @@ export interface AnalyticsEvent {
   userAgent?: string;
   screenWidth?: number;
   screenHeight?: number;
+  // Enhanced tracking fields
+  deviceType?: 'mobile' | 'tablet' | 'desktop';
+  browserType?: string;
+  trafficSource?: 'direct' | 'organic' | 'social' | 'referral' | 'paid' | 'email' | 'unknown';
+  referralSource?: string; // Specific referral (school, organization, etc.)
+  adCampaignSource?: string; // Google Ads, Facebook Ads, etc.
+  sessionDuration?: number; // Seconds
+  isReturningUser?: boolean;
+  visitCount?: number; // Number of times user has visited
+  daysSinceLastVisit?: number;
+  sectionName?: string; // Which section was viewed
+  timeOnSection?: number; // Seconds spent on section
+  interactionsCount?: number; // Number of interactions in session
+  conversionValue?: number; // Monetary value for conversions
+  affiliateProgram?: string; // For affiliate tracking
+  userJourneyStage?: string; // Where user is in funnel
 }
 
 export interface AnalyticsConfig {
@@ -27,6 +43,7 @@ export interface AnalyticsConfig {
   flushInterval?: number;
   includeUserData?: boolean;
 }
+
 
 
 

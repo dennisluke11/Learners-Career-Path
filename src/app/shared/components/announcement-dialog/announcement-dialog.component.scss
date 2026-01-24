@@ -48,7 +48,7 @@
   justify-content: space-between;
   align-items: flex-start;
   padding: 1.5rem;
-  background: linear-gradient(135deg, #1f7a6b 0%, #2c9b8a 100%);
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
   color: white;
   flex-shrink: 0;
 
@@ -217,7 +217,7 @@
       width: 100%;
 
       &:hover {
-        background: #2c9b8a;
+        background: var(--secondary-color);
         transform: translateY(-2px);
         box-shadow: 0 4px 12px rgba(31, 122, 107, 0.3);
       }

@@ -1,60 +1,80 @@
 <div class="app-container">
-  <header class="app-header" role="banner">
-    <div class="header-content">
-      <img [src]="logoPath()" alt="Learner's Career Path" class="app-logo" />
-      <div class="header-text">
-        <h1>Learner's Career Path</h1>
-        <p class="subtitle">Your journey from current grades to future success</p>
+  <!-- Main App Content -->
+  <div *ngIf="showMainContent()">
+    <header class="app-header" role="banner">
+      <div class="header-content">
+        <img [src]="logoPath()" alt="Learner's Career Path" class="app-logo" />
+        <div class="header-text">
+          <h1>Learner's Career Path</h1>
+          <p class="subtitle">Your journey from current grades to future success</p>
+        </div>
+        <button 
+          type="button" 
+          class="tour-button" 
+          (click)="startTour()"
+          aria-label="Take a quick tour of the app">
+          <span class="tour-icon">?</span>
+          <span class="tour-text">Take a Tour</span>
+        </button>
       </div>
-    </div>
-  </header>
+    </header>
 
-  <main id="main-content" class="app-main" role="main">
-    <app-announcements
-      [selectedCountry]="selectedCountryValue()"
-      [selectedCareer]="selectedCareerValue()"
-      [selectedGradeLevel]="selectedGradeLevelValue()">
-    </app-announcements>
-    
-    <app-country-selector 
-      [selectedCountry]="selectedCountryValue()"
-      (countryChange)="onCountryChange($event)">
-    </app-country-selector>
-    
-    <app-grade-level-selector 
-      [selectedCountry]="selectedCountryValue()"
-      [selectedGradeLevel]="selectedGradeLevelValue()"
-      (gradeLevelChange)="onGradeLevelChange($event)">
-    </app-grade-level-selector>
-    
-    <app-grade-input 
-      [selectedCountry]="selectedCountryValue()"
-      (gradesChange)="onGradesChange($event)">
-    </app-grade-input>
-    
-    <app-eligible-careers
-      [grades]="gradesValue()"
-      [selectedCountry]="selectedCountryValue()">
-    </app-eligible-careers>
-    
-    <app-career-selector 
-      [selectedCareer]="selectedCareerValue()"
-      [selectedCountry]="selectedCountryValue()"
-      [grades]="gradesValue()"
-      (careerChange)="onCareerChange($event)">
-    </app-career-selector>
-    
-    <app-improvement-display 
-      [grades]="gradesValue()" 
-      [career]="selectedCareerValue()"
-      [selectedCountry]="selectedCountryValue()">
-    </app-improvement-display>
-    
-    <app-progress-charts 
-      [grades]="gradesValue()" 
-      [career]="selectedCareerValue()"
-      [selectedCountry]="selectedCountryValue()">
-    </app-progress-charts>
-  </main>
+    <main id="main-content" class="app-main" role="main">
+      <app-announcements
+        [selectedCountry]="selectedCountryValue()"
+        [selectedCareer]="selectedCareerValue()"
+        [selectedGradeLevel]="selectedGradeLevelValue()">
+      </app-announcements>
+      
+      <app-country-selector 
+        [selectedCountry]="selectedCountryValue()"
+        (countryChange)="onCountryChange($event)">
+      </app-country-selector>
+      
+      <app-grade-level-selector 
+        [selectedCountry]="selectedCountryValue()"
+        [selectedGradeLevel]="selectedGradeLevelValue()"
+        (gradeLevelChange)="onGradeLevelChange($event)">
+      </app-grade-level-selector>
+      
+      <app-grade-input 
+        [selectedCountry]="selectedCountryValue()"
+        (gradesChange)="onGradesChange($event)">
+      </app-grade-input>
+      
+      <app-eligible-careers
+        [grades]="gradesValue()"
+        [selectedCountry]="selectedCountryValue()">
+      </app-eligible-careers>
+      
+      <app-career-selector 
+        [selectedCareer]="selectedCareerValue()"
+        [selectedCountry]="selectedCountryValue()"
+        [grades]="gradesValue()"
+        (careerChange)="onCareerChange($event)">
+      </app-career-selector>
+      
+      <app-improvement-display 
+        [grades]="gradesValue()" 
+        [career]="selectedCareerValue()"
+        [selectedCountry]="selectedCountryValue()">
+      </app-improvement-display>
+      
+      <app-progress-charts 
+        [grades]="gradesValue()" 
+        [career]="selectedCareerValue()"
+        [selectedCountry]="selectedCountryValue()">
+      </app-progress-charts>
+    </main>
+  </div>
+
+  <!-- Tour Component -->
+  <app-tour></app-tour>
+
+  <!-- Routed Pages (Privacy, Terms) -->
+  <router-outlet *ngIf="!showMainContent()"></router-outlet>
+  
+  <!-- Footer - Always visible -->
+  <app-footer></app-footer>
 </div>
 

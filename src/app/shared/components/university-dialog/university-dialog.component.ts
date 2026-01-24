@@ -1,8 +1,10 @@
 import { Component, Input, Output, EventEmitter, OnInit, OnChanges, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Career, QualificationLevel } from '../../models/career.model';
+import { formatQualificationLevel } from '../../models/qualification-frameworks';
 import { Grades } from '../../models/grades.model';
 import { EligibilityService } from '../../../features/eligibility/services/eligibility.service';
+import { AnalyticsService } from '../../../core/services/analytics.service';
 
 export interface UniversityEligibility {
   institution: string;
@@ -19,7 +21,9 @@ export interface UniversityEligibility {
 
 export interface QualificationLevelStatus {
   level: 'Degree' | 'BTech' | 'Diploma' | 'Certificate';
-  nqfLevel?: number;
+  nqfLevel?: number; // Deprecated, use frameworkLevel
+  frameworkName?: string;
+  frameworkLevel?: string | number;
   status: 'qualified' | 'close' | 'not-eligible';
   apsStatus: 'qualified' | 'close' | 'not-eligible';
   subjectStatus: 'qualified' | 'close' | 'not-eligible';
@@ -44,10 +48,31 @@ export class UniversityDialogComponent implements OnInit, OnChanges {
   universities: UniversityEligibility[] = [];
   userAps: number = 0;
   qualificationLevelsStatus: QualificationLevelStatus[] = [];
+  showQualificationLevels: boolean = true;
 
-  constructor(private eligibilityService: EligibilityService) {}
+  constructor(
+    private eligibilityService: EligibilityService,
+    private analyticsService: AnalyticsService
+  ) {
+    if (window.innerWidth <= 400) {
+      this.showQualificationLevels = false;
+    }
+  }
 
   async ngOnInit() {
+    this.analyticsService.trackSectionView('university_dialog', {
+      componentName: 'UniversityDialogComponent',
+      country: this.countryCode,
+      career: this.career?.name
+    });
+    
+    this.analyticsService.trackConversion('university_research_started', undefined, {
+      componentName: 'UniversityDialogComponent',
+      country: this.countryCode,
+      career: this.career?.name,
+      userJourneyStage: 'university_research'
+    });
+    
     await this.calculateEligibility();
   }
 
@@ -57,24 +82,26 @@ export class UniversityDialogComponent implements OnInit, OnChanges {
     }
   }
 
-  /**
-   * Calculate APS (Admission Point Score) from grades
-   * South African APS System:
-   * 80-100% = 7 points
-   * 70-79%  = 6 points
-   * 60-69%  = 5 points
-   * 50-59%  = 4 points
-   * 40-49%  = 3 points
-   * 30-39%  = 2 points
-   * 0-29%   = 1 point
-   */
+  private normalizeInstitutionName(name: string): string {
+    if (!name) return '';
+    
+    return name
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, ' ')
+      .replace(/[.,\-]/g, '')
+      .replace(/\buniversity\b/g, 'univ')
+      .replace(/\bof\b/g, 'of')
+      .replace(/\bthe\b/g, '')
+      .trim();
+  }
+
   calculateAps(grades: Grades): number {
     if (!grades) return 0;
     
     let totalPoints = 0;
     let subjectCount = 0;
     
-    // Get top 6 subjects (excluding Life Orientation which counts differently)
     const gradeEntries = Object.entries(grades)
       .filter(([subject, _]) => subject.toLowerCase() !== 'lifeorientation' && subject.toLowerCase() !== 'life orientation')
       .map(([subject, grade]) => ({ subject, grade: grade || 0 }))
@@ -86,19 +113,14 @@ export class UniversityDialogComponent implements OnInit, OnChanges {
       subjectCount++;
     }
     
-    // Add Life Orientation (capped at different value)
     const loGrade = grades['LifeOrientation'] || grades['Life Orientation'] || 0;
     if (loGrade > 0) {
-      // Life Orientation is typically weighted less or capped
       totalPoints += Math.min(this.gradeToApsPoints(loGrade), 6);
     }
     
     return totalPoints;
   }
 
-  /**
-   * Convert percentage grade to APS points
-   */
   gradeToApsPoints(percentage: number): number {
     if (percentage >= 80) return 7;
     if (percentage >= 70) return 6;
@@ -109,13 +131,9 @@ export class UniversityDialogComponent implements OnInit, OnChanges {
     return 1;
   }
 
-  /**
-   * Check if learner qualifies for a qualification level based on subject requirements
-   */
   async checkSubjectRequirements(qualLevel: QualificationLevel): Promise<'qualified' | 'close' | 'not-eligible'> {
     if (!this.grades || !qualLevel.minGrades) return 'not-eligible';
     
-    // Create a temporary career object to use with eligibility service
     const tempCareer: Career = {
       name: this.career?.name || '',
       minGrades: qualLevel.minGrades
@@ -128,9 +146,6 @@ export class UniversityDialogComponent implements OnInit, OnChanges {
     return 'not-eligible';
   }
 
-  /**
-   * Check APS requirements for a qualification level
-   */
   checkApsRequirements(apsRequired: number): 'qualified' | 'close' | 'not-eligible' {
     const apsDifference = this.userAps - apsRequired;
     if (apsDifference >= 0) return 'qualified';
@@ -148,7 +163,19 @@ export class UniversityDialogComponent implements OnInit, OnChanges {
     
     const qualLevels = this.career.qualificationLevels?.[this.countryCode] || [];
     
+    // Track seen levels to avoid duplicates
+    const seenLevels = new Set<string>();
+    
     for (const level of qualLevels) {
+      // Create unique key from level and nqfLevel to identify duplicates
+      const levelKey = `${level.level}-${level.nqfLevel || ''}`;
+      
+      // Skip if we've already processed this level
+      if (seenLevels.has(levelKey)) {
+        continue;
+      }
+      seenLevels.add(levelKey);
+      
       const subjectStatus = await this.checkSubjectRequirements(level);
       const apsRequired = level.aps || 0;
       const apsStatus = apsRequired > 0 ? this.checkApsRequirements(apsRequired) : 'qualified';
@@ -166,7 +193,9 @@ export class UniversityDialogComponent implements OnInit, OnChanges {
       
       this.qualificationLevelsStatus.push({
         level: level.level,
-        nqfLevel: level.nqfLevel,
+        nqfLevel: level.nqfLevel, // Keep for backward compatibility
+        frameworkName: level.frameworkName,
+        frameworkLevel: level.frameworkLevel,
         status: overallStatus,
         apsStatus,
         subjectStatus,
@@ -174,14 +203,18 @@ export class UniversityDialogComponent implements OnInit, OnChanges {
       });
     }
     
-    // Sort by level priority: Degree, BTech, Diploma, Certificate
-    const levelOrder = { 'Degree': 0, 'BTech': 1, 'Diploma': 2, 'Certificate': 3 };
-    this.qualificationLevelsStatus.sort((a, b) => levelOrder[a.level] - levelOrder[b.level]);
+    const levelOrder: { [key: string]: number } = { 'Degree': 0, 'BTech': 1, 'Diploma': 2, 'Certificate': 3 };
+    this.qualificationLevelsStatus.sort((a, b) => {
+      const orderA = levelOrder[a.level] ?? 999;
+      const orderB = levelOrder[b.level] ?? 999;
+      return orderA - orderB;
+    });
+    
+    if (this.qualificationLevelsStatus.length >= 3) {
+      this.showQualificationLevels = false;
+    }
   }
 
-  /**
-   * Calculate eligibility for each university
-   */
   async calculateEligibility() {
     this.universities = [];
     this.qualificationLevelsStatus = [];
@@ -208,8 +241,26 @@ export class UniversityDialogComponent implements OnInit, OnChanges {
       aps?: number;
     }> = Array.isArray(sources) ? sources : [sources];
     
+    // Track seen institutions to avoid duplicates
+    const seenInstitutions = new Set<string>();
+    const seenInstitutionsOriginal = new Map<string, string>(); // Map normalized -> original for debugging
+    
     for (const source of sourceArray) {
       if (!source.institution) continue;
+      
+      // Normalize institution name for comparison
+      // Remove extra spaces, convert to lowercase, remove common punctuation variations
+      const normalizedInstitution = this.normalizeInstitutionName(source.institution);
+      
+      // Skip if we've already processed this institution
+      if (seenInstitutions.has(normalizedInstitution)) {
+        // Log duplicate for debugging (can be removed in production)
+        console.debug(`Skipping duplicate university: "${source.institution}" (normalized: "${normalizedInstitution}")`);
+        continue;
+      }
+      
+      seenInstitutions.add(normalizedInstitution);
+      seenInstitutionsOriginal.set(normalizedInstitution, source.institution);
       
       const apsRequired = source.aps || this.qualificationLevel.aps || 0;
       const apsDifference = this.userAps - apsRequired;
@@ -243,10 +294,49 @@ export class UniversityDialogComponent implements OnInit, OnChanges {
       });
     }
     
+    // Additional deduplication pass to catch any edge cases
+    // This ensures no duplicates slip through
+    // Use a Map to keep track of best version (lowest APS requirement)
+    const finalUniversitiesMap = new Map<string, typeof this.universities[0]>();
+    
+    for (const uni of this.universities) {
+      // Use the same normalization function for consistency
+      const normalized = this.normalizeInstitutionName(uni.institution);
+      
+      const existing = finalUniversitiesMap.get(normalized);
+      
+      if (!existing) {
+        // First time seeing this university
+        finalUniversitiesMap.set(normalized, uni);
+      } else {
+        // Duplicate found - keep the one with lower APS requirement (more accessible)
+        const existingAps = existing.apsRequired ?? 999;
+        const currentAps = uni.apsRequired ?? 999;
+        
+        if (currentAps < existingAps) {
+          // Current university has lower APS, replace it
+          finalUniversitiesMap.set(normalized, uni);
+          console.debug(`Replacing duplicate "${existing.institution}" (APS ${existingAps}) with "${uni.institution}" (APS ${currentAps})`);
+        } else {
+          console.debug(`Skipping duplicate "${uni.institution}" (APS ${currentAps}) - keeping "${existing.institution}" (APS ${existingAps})`);
+        }
+      }
+    }
+    
+    // Convert map back to array
+    this.universities = Array.from(finalUniversitiesMap.values());
+    
     // Sort: qualified first, then close, then not-eligible
+    // Secondary sort by APS required (lower is better for user)
     this.universities.sort((a, b) => {
-      const statusOrder = { 'qualified': 0, 'close': 1, 'not-eligible': 2 };
-      return statusOrder[a.status] - statusOrder[b.status];
+      const statusOrder: { [key: string]: number } = { 'qualified': 0, 'close': 1, 'not-eligible': 2 };
+      const statusDiff = statusOrder[a.status] - statusOrder[b.status];
+      if (statusDiff !== 0) return statusDiff;
+      // If same status, sort by APS required (ascending)
+      // Handle undefined APS values (treat as 0 for sorting)
+      const apsA = a.apsRequired ?? 0;
+      const apsB = b.apsRequired ?? 0;
+      return apsA - apsB;
     });
   }
 
@@ -286,8 +376,53 @@ export class UniversityDialogComponent implements OnInit, OnChanges {
 
   openUniversityWebsite(url: string | undefined) {
     if (url) {
+      // Track external link click (potential affiliate revenue)
+      // Note: This will be tracked as affiliate when you set up university partnerships
+      this.analyticsService.trackExternalLinkClick(
+        url,
+        'University Website',
+        false, // Set to true when you have affiliate partnerships
+        undefined, // Affiliate program name
+        undefined, // Conversion value
+        {
+          componentName: 'UniversityDialogComponent',
+          university: this.career?.name,
+          country: this.countryCode
+        }
+      );
+      
       window.open(url, '_blank', 'noopener,noreferrer');
     }
+  }
+
+  formatQualificationDisplay(level: QualificationLevel): string {
+    return formatQualificationLevel(
+      level.level,
+      this.countryCode,
+      level.nqfLevel,
+      level.frameworkName,
+      level.frameworkLevel
+    );
+  }
+
+  getFrameworkDisplay(levelStatus: QualificationLevelStatus): string | null {
+    // For South Africa, show NQF
+    if (this.countryCode === 'ZA') {
+      if (levelStatus.nqfLevel) {
+        return `NQF ${levelStatus.nqfLevel}`;
+      }
+      if (levelStatus.frameworkLevel) {
+        return `NQF ${levelStatus.frameworkLevel}`;
+      }
+      return null;
+    }
+
+    // For other countries, show their framework
+    if (levelStatus.frameworkName && levelStatus.frameworkLevel) {
+      return `${levelStatus.frameworkName} ${levelStatus.frameworkLevel}`;
+    }
+
+    return null;
   }
 }
 

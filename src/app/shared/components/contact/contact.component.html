@@ -1,0 +1,44 @@
+<div class="contact-page">
+  <div class="container">
+    <header class="page-header">
+      <h1>Contact Us</h1>
+      <p class="subtitle">We'd love to hear from you</p>
+    </header>
+
+    <main class="contact-content">
+      <section>
+        <h2>Get in Touch</h2>
+        <p>If you have any questions, feedback, or need assistance with Learner's Career Path, please don't hesitate to reach out to us.</p>
+      </section>
+
+      <section>
+        <h2>Email Us</h2>
+        <p>For general inquiries, support, or feedback, please email us at:</p>
+        <p class="contact-email">
+          <a [href]="'mailto:' + contactEmail">{{ contactEmail }}</a>
+        </p>
+      </section>
+
+      <section>
+        <h2>What Can We Help With?</h2>
+        <ul>
+          <li><strong>Technical Support:</strong> Issues with the app, bugs, or technical questions</li>
+          <li><strong>Feature Requests:</strong> Suggestions for new features or improvements</li>
+          <li><strong>Feedback:</strong> Your thoughts on how we can improve the service</li>
+          <li><strong>Educational Content:</strong> Questions about career information or university data</li>
+          <li><strong>Partnerships:</strong> Opportunities for collaboration or partnerships</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Response Time</h2>
+        <p>We aim to respond to all inquiries within 2-3 business days. Thank you for your patience!</p>
+      </section>
+    </main>
+
+    <footer class="page-footer">
+      <a routerLink="/home" class="back-link">← Back to App</a>
+    </footer>
+  </div>
+</div>
+

@@ -58,6 +58,17 @@ service cloud.firestore {
       allow write: if false; // Only admins can write (configure separately)
     }
     
+    // FCM tokens collection - allow users to write their own tokens
+    match /fcmTokens/{tokenId} {
+      // Allow write if data contains required fields
+      allow write: if request.resource.data.keys().hasAll(['token', 'country', 'updatedAt']) &&
+                     request.resource.data.token is string &&
+                     request.resource.data.country is string &&
+                     request.resource.data.updatedAt is string;
+      // Only server (Firebase Functions) can read tokens
+      allow read: if false;
+    }
+    
     // Default: deny all other access
     match /{document=**} {
       allow read, write: if false;

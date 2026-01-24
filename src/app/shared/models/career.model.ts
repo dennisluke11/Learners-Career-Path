@@ -1,8 +1,10 @@
 export interface QualificationLevel {
   level: 'Degree' | 'BTech' | 'Diploma' | 'Certificate';
-  nqfLevel?: number; // NQF level (e.g., 7 for Degree, 6 for Diploma, 5 for Certificate)
+  nqfLevel?: number; // NQF level (South Africa only) - DEPRECATED: Use frameworkLevel instead
+  frameworkName?: string; // Qualification framework name (e.g., "NQF", "KCSE", "WAEC", "ZIMSEC", etc.)
+  frameworkLevel?: string | number; // Level in the framework (e.g., 7 for NQF, "A" for KCSE, etc.)
   minGrades: { [subject: string]: number };
-  aps?: number; // Admission Point Score (if applicable)
+  aps?: number; // Admission Point Score (South Africa only)
   notes?: string; // Additional notes (e.g., "Mathematics required, not Mathematical Literacy")
   sources?: {
     url?: string; // Official source URL

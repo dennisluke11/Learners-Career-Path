@@ -61,7 +61,7 @@
       <div *ngIf="displayQualificationLevels && displayQualificationLevels.length > 0" class="qualification-levels">
         <h5>Qualification Levels:</h5>
         <div *ngFor="let level of displayQualificationLevels" class="qual-level">
-          <h6>{{level.level}} (NQF {{level.nqfLevel}})</h6>
+          <h6>{{formatQualificationLevel(level)}}</h6>
           <ul *ngIf="level.minGrades && getObjectKeys(level.minGrades).length > 0">
             <li *ngFor="let subject of getObjectKeys(level.minGrades)">
               <span class="subject-name">{{subject}}:</span>

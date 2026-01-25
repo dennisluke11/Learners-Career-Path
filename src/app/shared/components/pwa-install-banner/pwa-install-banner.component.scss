@@ -1,0 +1,233 @@
+.pwa-install-banner {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--background-white, #ffffff);
+  border-top: 3px solid var(--primary-color, #1F7A6B);
+  box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  animation: slideUp 0.3s ease-out;
+  max-width: 100%;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.banner-content {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.banner-icon {
+  flex-shrink: 0;
+  color: var(--primary-color, #1F7A6B);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.banner-text {
+  flex: 1;
+  min-width: 0;
+
+  h3 {
+    margin: 0 0 0.25rem 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-dark, #2c3e50);
+  }
+
+  p {
+    margin: 0;
+    font-size: 0.875rem;
+    color: var(--text-medium, #5a5a5a);
+    line-height: 1.4;
+  }
+}
+
+.banner-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.install-btn {
+  background: var(--primary-color, #1F7A6B);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 0.625rem 1.25rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+
+  &:hover {
+    background: var(--secondary-color, #5A3A29);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(31, 122, 107, 0.3);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+}
+
+.dismiss-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-light, #7f8c8d);
+  cursor: pointer;
+  padding: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s;
+
+  &:hover {
+    background: var(--background-light, #EEF3F1);
+    color: var(--text-dark, #2c3e50);
+  }
+}
+
+.ios-instructions {
+  background: var(--background-light, #EEF3F1);
+  border-top: 1px solid var(--border-color, #e0e0e0);
+  padding: 1.5rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.instructions-content {
+  h4 {
+    margin: 0 0 1rem 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-dark, #2c3e50);
+  }
+
+  ol {
+    margin: 0 0 1rem 0;
+    padding-left: 1.5rem;
+    color: var(--text-medium, #5a5a5a);
+
+    li {
+      margin-bottom: 0.75rem;
+      line-height: 1.5;
+
+      strong {
+        color: var(--text-dark, #2c3e50);
+      }
+    }
+  }
+
+  .share-icon {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    background: var(--primary-color, #1F7A6B);
+    color: white;
+    border-radius: 4px;
+    text-align: center;
+    line-height: 20px;
+    font-size: 12px;
+    margin: 0 4px;
+    vertical-align: middle;
+  }
+}
+
+.close-instructions {
+  background: var(--primary-color, #1F7A6B);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 0.625rem 1.25rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+
+  &:hover {
+    background: var(--secondary-color, #5A3A29);
+  }
+}
+
+@media (max-width: 768px) {
+  .banner-content {
+    flex-wrap: wrap;
+    padding: 0.875rem;
+  }
+
+  .banner-text {
+    flex: 1 1 100%;
+    order: 1;
+  }
+
+  .banner-icon {
+    order: 0;
+  }
+
+  .banner-actions {
+    order: 2;
+    flex: 1 1 100%;
+    justify-content: flex-end;
+    margin-top: 0.5rem;
+  }
+
+  .banner-text h3 {
+    font-size: 0.9375rem;
+  }
+
+  .banner-text p {
+    font-size: 0.8125rem;
+  }
+
+  .install-btn {
+    padding: 0.5rem 1rem;
+    font-size: 0.8125rem;
+  }
+
+  .ios-instructions {
+    padding: 1rem;
+  }
+
+  .instructions-content ol {
+    font-size: 0.875rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .banner-content {
+    padding: 0.75rem;
+  }
+
+  .banner-icon {
+    display: none;
+  }
+
+  .banner-actions {
+    gap: 0.25rem;
+  }
+
+  .install-btn {
+    padding: 0.5rem 0.875rem;
+    font-size: 0.75rem;
+  }
+}
+

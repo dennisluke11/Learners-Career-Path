@@ -12,6 +12,7 @@ import { CareerPlanningModule } from './features/career-planning/career-planning
 import { EligibilityModule } from './features/eligibility/eligibility.module';
 import { GlobalErrorHandler } from './core/services/error-handler.service';
 import { TourComponent } from './shared/components/tour/tour.component';
+import { PwaInstallBannerComponent } from './shared/components/pwa-install-banner/pwa-install-banner.component';
 
 @NgModule({
   declarations: [
@@ -26,6 +27,7 @@ import { TourComponent } from './shared/components/tour/tour.component';
     CareerPlanningModule,
     EligibilityModule,
     TourComponent,
+    PwaInstallBannerComponent,
     ServiceWorkerModule.register('ngsw-worker.js', {
       enabled: environment.production,
       registrationStrategy: 'registerWhenStable:30000'

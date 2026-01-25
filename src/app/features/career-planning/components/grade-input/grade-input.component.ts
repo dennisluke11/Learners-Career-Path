@@ -4,6 +4,7 @@ import { Country } from '../../../../shared/models/country.model';
 import { FormGroup, FormBuilder, Validators } from '@angular/forms';
 import { SubjectMapping, EitherOrGroup } from '../../../../shared/models/subject.model';
 import { SubjectsService } from '../../../../shared/services/subjects.service';
+import { UserPreferencesService } from '../../../../core/services/user-preferences.service';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 
@@ -20,14 +21,17 @@ export class GradeInputComponent implements OnChanges, OnDestroy {
   subjectMappings: SubjectMapping[] = [];
   currentGrades: Grades = {};
   eitherOrGroups: EitherOrGroup[] = [];
+  enforceCompulsorySubjects: boolean = true;
   private destroy$ = new Subject<void>();
 
   constructor(
     private fb: FormBuilder,
     private subjectsService: SubjectsService,
+    private userPreferencesService: UserPreferencesService,
     private cdr: ChangeDetectorRef
   ) {
     this.gradeForm = this.fb.group({});
+    this.enforceCompulsorySubjects = this.userPreferencesService.getEnforceCompulsorySubjects();
   }
 
   ngOnDestroy(): void {
@@ -38,11 +42,10 @@ export class GradeInputComponent implements OnChanges, OnDestroy {
   async ngOnChanges(changes: SimpleChanges) {
     if (changes['selectedCountry']) {
       if (this.selectedCountry) {
-        // Preserve current grades before changing subjects
         this.currentGrades = this.gradeForm.value;
+        this.enforceCompulsorySubjects = this.userPreferencesService.getEnforceCompulsorySubjects();
         await this.loadSubjects(this.selectedCountry.code);
       } else {
-        // If no country selected, clear subjects
         this.subjectMappings = [];
         this.gradeForm = this.fb.group({});
       }
@@ -66,13 +69,14 @@ export class GradeInputComponent implements OnChanges, OnDestroy {
     
     this.subjectMappings.forEach(subj => {
       const standardName = subj.standardName;
-      // Preserve previous value if subject exists, otherwise use empty
       const previousValue = previousValues[standardName] || previousValues[subj.displayName] || '';
+      
+      const shouldRequire = this.enforceCompulsorySubjects && subj.required;
       
       newForm.addControl(
         standardName,
         this.fb.control(previousValue, [
-          subj.required ? Validators.required : Validators.nullValidator,
+          shouldRequire ? Validators.required : Validators.nullValidator,
           Validators.min(0),
           Validators.max(100)
         ])
@@ -220,8 +224,14 @@ export class GradeInputComponent implements OnChanges, OnDestroy {
       }
     }
     
-    if (this.gradeForm.valid) {
-      this.gradesChange.emit(this.gradeForm.value);
+    const formValues = this.gradeForm.value;
+    const hasGrades = Object.keys(formValues).some(key => {
+      const value = formValues[key];
+      return value !== null && value !== undefined && value !== '' && (typeof value === 'number' ? value > 0 : parseFloat(value) > 0);
+    });
+    
+    if (hasGrades) {
+      this.gradesChange.emit(formValues);
     }
   }
 
@@ -263,8 +273,60 @@ export class GradeInputComponent implements OnChanges, OnDestroy {
   }
 
   isSubjectRequired(standardName: string): boolean {
+    if (!this.enforceCompulsorySubjects) {
+      return false;
+    }
     const mapping = this.subjectMappings.find(s => s.standardName === standardName);
     return mapping?.required || false;
+  }
+
+  onToggleEnforceCompulsorySubjects(event: Event): void {
+    const target = event.target as HTMLInputElement;
+    const enforce = target.checked;
+    this.enforceCompulsorySubjects = enforce;
+    this.userPreferencesService.setEnforceCompulsorySubjects(enforce);
+    
+    this.rebuildFormWithNewValidation();
+  }
+
+  private rebuildFormWithNewValidation(): void {
+    const currentValues = this.gradeForm.value || {};
+    const newForm = this.fb.group({});
+    
+    this.subjectMappings.forEach(subj => {
+      const standardName = subj.standardName;
+      const currentValue = currentValues[standardName] || '';
+      
+      const shouldRequire = this.enforceCompulsorySubjects && subj.required;
+      
+      newForm.addControl(
+        standardName,
+        this.fb.control(currentValue, [
+          shouldRequire ? Validators.required : Validators.nullValidator,
+          Validators.min(0),
+          Validators.max(100)
+        ])
+      );
+    });
+    
+    for (const group of this.eitherOrGroups) {
+      if (group.subjects && group.subjects.length >= 2) {
+        const maxAllowed = group.maxAllowed ?? 1;
+        
+        if (maxAllowed === 1) {
+          for (let i = 0; i < group.subjects.length; i++) {
+            for (let j = i + 1; j < group.subjects.length; j++) {
+              this.setupEitherOrValidation(newForm, group.subjects[i], group.subjects[j]);
+            }
+          }
+        }
+      }
+    }
+    
+    this.gradeForm = newForm;
+    this.cdr.detectChanges();
+    
+    this.onGradesChange();
   }
 
   getPlaceholder(standardName: string): string {

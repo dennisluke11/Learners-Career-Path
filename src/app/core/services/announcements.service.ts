@@ -32,7 +32,6 @@ export class AnnouncementsService {
     const now = Date.now();
     if (this.cache.length > 0 && (now - this.cacheTimestamp) < this.cacheDuration) {
       const filtered = this.filterAnnouncements(this.cache, country, career, gradeLevel);
-      this.loggingService.debug(`Using cache: ${this.cache.length} announcements, filtered to ${filtered.length}`, { country, career, gradeLevel });
       return filtered;
     }
 
@@ -53,7 +52,6 @@ export class AnnouncementsService {
       const announcements: Announcement[] = [];
 
       if (querySnapshot.empty) {
-        this.loggingService.warn('No active announcements found in Firestore');
         return [];
       }
 
@@ -81,21 +79,10 @@ export class AnnouncementsService {
       this.cache = announcements;
       this.cacheTimestamp = Date.now();
 
-      this.loggingService.debug(`Fetched ${querySnapshot.size} active announcements from Firestore, ${announcements.length} within date range`);
-      if (querySnapshot.size > 0 && announcements.length === 0) {
-        this.loggingService.warn(`Found ${querySnapshot.size} active announcements but none are within the current date range`);
-      }
-
       const filtered = this.filterAnnouncements(announcements, country, career, gradeLevel);
-      this.loggingService.debug(`Filtered ${announcements.length} announcements to ${filtered.length}`, { country, career, gradeLevel });
-      if (filtered.length === 0 && announcements.length > 0) {
-        this.loggingService.warn('All announcements were filtered out. Check if country/career/gradeLevel filters are too restrictive');
-      }
       return filtered;
     } catch (error: any) {
-      if (error?.code === 'permission-denied' || error?.message?.includes('permissions')) {
-        this.loggingService.warn('Permission denied - using default announcements. Please check Firestore security rules');
-      } else {
+      if (error?.code !== 'permission-denied' && !error?.message?.includes('permissions')) {
         this.loggingService.error('Error fetching announcements', error);
       }
       return this.getDefaultAnnouncements();
@@ -112,8 +99,6 @@ export class AnnouncementsService {
     career?: string,
     gradeLevel?: number
   ): Announcement[] {
-    this.loggingService.debug(`Filtering ${announcements.length} announcements`, { country, career, gradeLevel });
-
     return announcements.filter(announcement => {
       let passesFilter = true;
       const reasons: string[] = [];
@@ -150,10 +135,6 @@ export class AnnouncementsService {
       }
       // If user hasn't selected grade level, show announcement anyway (grade level is optional)
       // If announcement has no grade level restrictions, show to all grade levels
-
-      if (!passesFilter) {
-        this.loggingService.debug(`Filtered out "${announcement.title}"`, { reasons: reasons.join('; ') });
-      }
 
       return passesFilter;
     }).sort((a, b) => {
@@ -215,7 +196,6 @@ export class AnnouncementsService {
    * Get default announcements (fallback) - Returns empty array to enforce Firestore-only data
    */
   private getDefaultAnnouncements(): Announcement[] {
-    this.loggingService.warn('No announcements available. Possible reasons: no announcements in Firestore, permission errors, all filtered out, or outside date range');
     return [];
   }
 

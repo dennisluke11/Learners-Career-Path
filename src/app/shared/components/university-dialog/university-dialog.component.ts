@@ -167,8 +167,8 @@ export class UniversityDialogComponent implements OnInit, OnChanges {
     const seenLevels = new Set<string>();
     
     for (const level of qualLevels) {
-      // Create unique key from level and nqfLevel to identify duplicates
-      const levelKey = `${level.level}-${level.nqfLevel || ''}`;
+      // Create unique key from level, nqfLevel, and frameworkLevel to identify duplicates
+      const levelKey = `${level.level}-${level.nqfLevel || ''}-${level.frameworkLevel || ''}-${level.frameworkName || ''}`;
       
       // Skip if we've already processed this level
       if (seenLevels.has(levelKey)) {
@@ -202,6 +202,20 @@ export class UniversityDialogComponent implements OnInit, OnChanges {
         overallStatus
       });
     }
+    
+    // Final deduplication pass: remove any remaining duplicates based on level and framework display
+    const finalDeduplicated: QualificationLevelStatus[] = [];
+    const finalSeenKeys = new Set<string>();
+    
+    for (const status of this.qualificationLevelsStatus) {
+      const displayKey = `${status.level}-${status.frameworkLevel || status.nqfLevel || ''}-${status.frameworkName || ''}`;
+      if (!finalSeenKeys.has(displayKey)) {
+        finalSeenKeys.add(displayKey);
+        finalDeduplicated.push(status);
+      }
+    }
+    
+    this.qualificationLevelsStatus = finalDeduplicated;
     
     const levelOrder: { [key: string]: number } = { 'Degree': 0, 'BTech': 1, 'Diploma': 2, 'Certificate': 3 };
     this.qualificationLevelsStatus.sort((a, b) => {

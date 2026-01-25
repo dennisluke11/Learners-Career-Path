@@ -6,14 +6,35 @@
 
   <!-- Compulsory Subjects Section -->
   <div *ngIf="getRequiredSubjects().length > 0" class="compulsory-section" aria-labelledby="compulsory-heading">
-    <h3 id="compulsory-heading" class="section-title">
-      <span class="section-icon" aria-hidden="true">📋</span>
-      <span class="sr-only">Compulsory subjects section: </span>
-      Compulsory Subjects
-      <span class="section-badge" [attr.aria-label]="getRequiredSubjects().length + ' compulsory subjects'">{{getRequiredSubjects().length}}</span>
-    </h3>
+    <div class="section-header">
+      <h3 id="compulsory-heading" class="section-title">
+        <span class="section-icon" aria-hidden="true">📋</span>
+        <span class="sr-only">Compulsory subjects section: </span>
+        Compulsory Subjects
+        <span class="section-badge" [attr.aria-label]="getRequiredSubjects().length + ' compulsory subjects'">{{getRequiredSubjects().length}}</span>
+      </h3>
+      <div class="enforce-toggle">
+        <label class="toggle-label">
+          <input 
+            type="checkbox" 
+            [checked]="enforceCompulsorySubjects"
+            (change)="onToggleEnforceCompulsorySubjects($event)"
+            aria-label="Enforce compulsory subjects"
+          />
+          <span class="toggle-text">
+            <span class="toggle-label-main">Enforce compulsory subjects</span>
+            <span class="toggle-label-hint">(For mainstream CAPS learners)</span>
+          </span>
+        </label>
+      </div>
+    </div>
     <p class="section-description">
-      These subjects are required for your {{selectedCountry?.name}} curriculum. Please enter your grades for all compulsory subjects.
+      <span *ngIf="enforceCompulsorySubjects">
+        These subjects are required for your {{selectedCountry?.name}} curriculum. Please enter your grades for all compulsory subjects.
+      </span>
+      <span *ngIf="!enforceCompulsorySubjects">
+        These are typically compulsory subjects for {{selectedCountry?.name}} curriculum. You can skip them if you're homeschooled or following an international curriculum.
+      </span>
       <span *ngIf="eitherOrGroups.length > 0" class="math-note">
         <strong>Important:</strong> You must enter a grade for either <strong>Mathematics</strong> OR <strong>Mathematical Literacy</strong> (not both). 
         You must also enter a grade for either <strong>English (Home Language)</strong> OR <strong>English (First Additional Language)</strong> (not both). 

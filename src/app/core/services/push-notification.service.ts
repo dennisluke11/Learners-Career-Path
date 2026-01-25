@@ -226,8 +226,8 @@ export class PushNotificationService {
     if ('Notification' in window && Notification.permission === 'granted') {
       const notification = new Notification(payload.notification?.title || 'New Notification', {
         body: payload.notification?.body,
-        icon: payload.notification?.icon || '/assets/logo.svg',
-        badge: '/assets/logo.svg',
+        icon: payload.notification?.icon || '/assets/logo.png',
+        badge: '/assets/logo.png',
         tag: payload.data?.announcementId,
         data: payload.data
       });

@@ -46,15 +46,11 @@ export class AnnouncementsComponent implements OnInit, OnChanges {
     const career = this.selectedCareer?.name;
     const gradeLevel = this.selectedGradeLevel?.level;
 
-    this.loggingService.debug('Loading announcements', { country, career, gradeLevel });
-
     const announcements = await this.announcementsService.getAnnouncements(
       country,
       career,
       gradeLevel
     );
-
-    this.loggingService.debug(`Received ${announcements.length} announcements`);
     this.announcements.set(announcements);
     this.isLoading.set(false);
 

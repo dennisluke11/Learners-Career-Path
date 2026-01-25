@@ -24,7 +24,7 @@ export class AppComponent implements OnInit, OnDestroy {
   selectedGradeLevel = signal<GradeLevel | null>(null);
   selectedSubjects = signal<string[]>([]);
   subjectsNeedingImprovement = signal<string[]>([]);
-  logoPath = signal<string>('assets/logo.svg');
+  logoPath = signal<string>('assets/logo.png');
   showMainContent = signal<boolean>(true);
   private routerSubscription?: Subscription;
 
@@ -45,6 +45,13 @@ export class AppComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit() {
+    // Check if logo.png exists, fallback to logo.svg
+    const img = new Image();
+    img.onerror = () => {
+      this.logoPath.set('assets/logo.svg');
+    };
+    img.src = 'assets/logo.png';
+    
     this.routerSubscription = this.router.events
       .pipe(filter((event): event is NavigationEnd => event instanceof NavigationEnd))
       .subscribe((event) => {

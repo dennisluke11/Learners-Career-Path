@@ -3,6 +3,7 @@ import { Grades } from '../../../shared/models/grades.model';
 import { Career } from '../../../shared/models/career.model';
 import { COUNTRY_SUBJECTS } from '../../../shared/models/subject.model';
 import { SubjectsService } from '../../../shared/services/subjects.service';
+import { UserPreferencesService } from '../../../core/services/user-preferences.service';
 import { EitherOrGroup } from '../../../shared/models/subject.model';
 
 export interface EligibleCareer {
@@ -17,7 +18,10 @@ export interface EligibleCareer {
 export class EligibilityService {
   private eitherOrGroupsCache: { [countryCode: string]: EitherOrGroup[] } = {};
 
-  constructor(private subjectsService: SubjectsService) {}
+  constructor(
+    private subjectsService: SubjectsService,
+    private userPreferencesService: UserPreferencesService
+  ) {}
 
   private normalizeSubjectName(subjectName: string, countryCode: string): string {
     if (!subjectName) return subjectName;
@@ -308,7 +312,6 @@ export class EligibilityService {
     const totalRequirements = { value: 0 };
     const metRequirements = { value: 0 };
 
-    // Get requirements to check - should already be set by CareersService.getCareersForCountry()
     const requirements = career.minGrades || {};
 
     if (!requirements || Object.keys(requirements).length === 0) {
@@ -322,13 +325,32 @@ export class EligibilityService {
     }
 
     const country = countryCode || 'ZA';
+    const enforceCompulsorySubjects = this.userPreferencesService.getEnforceCompulsorySubjects();
     const eitherOrGroups = await this.getEitherOrGroups(country);
     const processedSubjects = new Set<string>();
+    
+    let mandatorySubjectsToSkip: Set<string> = new Set();
+    if (!enforceCompulsorySubjects) {
+      try {
+        const mandatorySubjects = await this.subjectsService.getMandatorySubjects(country);
+        mandatorySubjectsToSkip = new Set(mandatorySubjects);
+      } catch (error) {
+        console.warn('Could not load mandatory subjects, proceeding without skipping:', error);
+      }
+    }
 
     for (const group of eitherOrGroups) {
       const hasRequiredSubject = group.subjects.some(subj => requirements[subj] !== undefined);
       
       if (hasRequiredSubject) {
+        if (!enforceCompulsorySubjects) {
+          const allSubjectsAreMandatory = group.subjects.every(subj => mandatorySubjectsToSkip.has(subj));
+          if (allSubjectsAreMandatory) {
+            group.subjects.forEach(subj => processedSubjects.add(subj));
+            continue;
+          }
+        }
+        
         await this.processEitherOrGroup(
           group,
           requirements,
@@ -351,6 +373,9 @@ export class EligibilityService {
       const subjectEntered = await this.isSubjectEntered(grades, subject, country);
       
       if (!subjectEntered) {
+        if (!enforceCompulsorySubjects && mandatorySubjectsToSkip.has(subject)) {
+          continue;
+        }
         continue;
       }
       

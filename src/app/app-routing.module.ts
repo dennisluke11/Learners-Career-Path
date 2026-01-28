@@ -3,6 +3,9 @@ import { RouterModule, Routes } from '@angular/router';
 import { PrivacyPolicyComponent } from './shared/components/privacy-policy/privacy-policy.component';
 import { TermsOfServiceComponent } from './shared/components/terms-of-service/terms-of-service.component';
 import { ContactComponent } from './shared/components/contact/contact.component';
+import { AdminLoginComponent } from './features/admin/admin-login/admin-login.component';
+import { AdminDashboardComponent } from './features/admin/admin-dashboard/admin-dashboard.component';
+import { AdminGuard } from './core/guards/admin.guard';
 
 const routes: Routes = [
   {
@@ -29,6 +32,20 @@ const routes: Routes = [
   {
     path: 'contact',
     component: ContactComponent
+  },
+  {
+    path: 'admin',
+    redirectTo: '/admin/login',
+    pathMatch: 'full'
+  },
+  {
+    path: 'admin/login',
+    component: AdminLoginComponent
+  },
+  {
+    path: 'admin/dashboard',
+    component: AdminDashboardComponent,
+    canActivate: [AdminGuard]
   },
   {
     path: '**',

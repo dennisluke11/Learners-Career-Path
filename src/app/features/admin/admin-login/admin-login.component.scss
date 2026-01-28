@@ -1,0 +1,105 @@
+.admin-login-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background: linear-gradient(135deg, var(--primary-color, #1F7A6B) 0%, var(--secondary-color, #5A3A29) 100%);
+  padding: 20px;
+}
+
+.login-card {
+  background: white;
+  border-radius: 12px;
+  padding: 40px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+  width: 100%;
+  max-width: 400px;
+  border-top: 4px solid var(--primary-color, #1F7A6B);
+
+  h1 {
+    margin: 0 0 10px 0;
+    color: var(--primary-color, #1F7A6B);
+    font-size: 28px;
+    font-weight: 600;
+  }
+
+  .subtitle {
+    color: var(--text-medium, #5a5a5a);
+    margin-bottom: 30px;
+    font-size: 14px;
+  }
+}
+
+.login-form {
+  .form-group {
+    margin-bottom: 20px;
+
+    label {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--text-dark, #2c3e50);
+      font-weight: 500;
+      font-size: 14px;
+    }
+
+    .form-control {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid var(--border-color, #e0e0e0);
+      border-radius: 8px;
+      font-size: 16px;
+      transition: border-color 0.3s;
+      box-sizing: border-box;
+
+      &:focus {
+        outline: none;
+        border-color: var(--primary-color, #1F7A6B);
+        box-shadow: 0 0 0 3px rgba(31, 122, 107, 0.1);
+      }
+    }
+  }
+
+  .error-message {
+    background: #fee;
+    color: #c33;
+    padding: 12px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    font-size: 14px;
+    border-left: 4px solid #c33;
+  }
+
+  .btn {
+    width: 100%;
+    padding: 12px;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+
+    &.btn-primary {
+      background: var(--primary-color, #1F7A6B);
+      color: white;
+      box-shadow: 0 2px 8px rgba(31, 122, 107, 0.3);
+
+      &:hover:not(:disabled) {
+        background: var(--secondary-color, #5A3A29);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(31, 122, 107, 0.4);
+      }
+
+      &:active:not(:disabled) {
+        transform: translateY(0);
+      }
+
+      &:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none;
+      }
+    }
+  }
+}
+

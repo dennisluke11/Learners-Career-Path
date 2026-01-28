@@ -1,0 +1,160 @@
+<div class="data-management">
+  <div class="section-tabs">
+    <button 
+      class="section-tab" 
+      [class.active]="activeSection === 'careers'"
+      (click)="setActiveSection('careers')"
+    >
+      Careers
+    </button>
+    <button 
+      class="section-tab" 
+      [class.active]="activeSection === 'announcements'"
+      (click)="setActiveSection('announcements')"
+    >
+      Announcements
+    </button>
+  </div>
+
+  <div *ngIf="loading" class="loading">
+    <p>Loading data...</p>
+  </div>
+
+  <!-- Careers Section -->
+  <div *ngIf="!loading && activeSection === 'careers'" class="data-section">
+    <div class="section-header">
+      <h2>Careers Management</h2>
+      <div class="count-badge">{{ careers.length }} careers</div>
+    </div>
+
+    <div class="data-grid">
+      <div class="data-list">
+        <div 
+          *ngFor="let career of careers" 
+          class="data-item"
+          [class.selected]="selectedCareer?.name === career.name"
+          (click)="selectCareer(career)"
+        >
+          <div class="item-name">{{ career.name }}</div>
+          <div class="item-meta">
+            <span *ngIf="career.category" class="badge">{{ career.category }}</span>
+            <span class="countries-count">
+              {{ getCareerCountries(career).length }} countries
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div class="data-details" *ngIf="selectedCareer">
+        <div class="details-header">
+          <h3>{{ selectedCareer.name }}</h3>
+          <button class="btn-close" (click)="closeDetails()">×</button>
+        </div>
+        <div class="details-content">
+          <div class="detail-row">
+            <strong>Category:</strong>
+            <span>{{ selectedCareer.category || 'N/A' }}</span>
+          </div>
+          <div class="detail-row">
+            <strong>Verification Status:</strong>
+            <span class="badge" [class.verified]="selectedCareer.verificationStatus === 'verified'">
+              {{ selectedCareer.verificationStatus || 'N/A' }}
+            </span>
+          </div>
+          <div class="detail-row">
+            <strong>Last Verified:</strong>
+            <span>{{ formatDate(selectedCareer.lastVerified) }}</span>
+          </div>
+          <div class="detail-row">
+            <strong>Countries:</strong>
+            <span>{{ getCareerCountries(selectedCareer).join(', ') || 'None' }}</span>
+          </div>
+          <div class="detail-section">
+            <strong>Minimum Grades:</strong>
+            <pre>{{ selectedCareer.minGrades | json }}</pre>
+          </div>
+        </div>
+        <div class="details-footer">
+          <p class="note">
+            <strong>Note:</strong> To edit careers, use the Firebase Console or the scripts in the <code>scripts/</code> directory.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Announcements Section -->
+  <div *ngIf="!loading && activeSection === 'announcements'" class="data-section">
+    <div class="section-header">
+      <h2>Announcements Management</h2>
+      <div class="count-badge">{{ announcements.length }} announcements</div>
+    </div>
+
+    <div class="data-grid">
+      <div class="data-list">
+        <div 
+          *ngFor="let announcement of announcements" 
+          class="data-item"
+          [class.selected]="selectedAnnouncement?.id === announcement.id"
+          (click)="selectAnnouncement(announcement)"
+        >
+          <div class="item-name">{{ announcement.title }}</div>
+          <div class="item-meta">
+            <span class="badge">{{ announcement.type }}</span>
+            <span class="badge" [class.active]="announcement.isActive">
+              {{ announcement.isActive ? 'Active' : 'Inactive' }}
+            </span>
+            <span *ngIf="announcement.views !== undefined" class="views-count">
+              👁 {{ announcement.views }} views
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div class="data-details" *ngIf="selectedAnnouncement">
+        <div class="details-header">
+          <h3>{{ selectedAnnouncement.title }}</h3>
+          <button class="btn-close" (click)="closeDetails()">×</button>
+        </div>
+        <div class="details-content">
+          <div class="detail-row">
+            <strong>Type:</strong>
+            <span>{{ selectedAnnouncement.type }}</span>
+          </div>
+          <div class="detail-row">
+            <strong>Status:</strong>
+            <span class="badge" [class.active]="selectedAnnouncement.isActive">
+              {{ selectedAnnouncement.isActive ? 'Active' : 'Inactive' }}
+            </span>
+          </div>
+          <div class="detail-row">
+            <strong>Start Date:</strong>
+            <span>{{ formatDate(selectedAnnouncement.startDate) }}</span>
+          </div>
+          <div class="detail-row">
+            <strong>End Date:</strong>
+            <span>{{ formatDate(selectedAnnouncement.endDate) }}</span>
+          </div>
+          <div class="detail-row">
+            <strong>Views:</strong>
+            <span>{{ selectedAnnouncement.views || 0 }}</span>
+          </div>
+          <div class="detail-row">
+            <strong>Clicks:</strong>
+            <span>{{ selectedAnnouncement.clicks || 0 }}</span>
+          </div>
+          <div class="detail-section">
+            <strong>Content:</strong>
+            <div class="content-preview">{{ selectedAnnouncement.content }}</div>
+          </div>
+        </div>
+        <div class="details-footer">
+          <p class="note">
+            <strong>Note:</strong> To edit announcements, use the Firebase Console or the scripts in the <code>scripts/</code> directory.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+

@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { initializeApp, FirebaseApp, getApps, getApp } from 'firebase/app';
 import { getFirestore, Firestore, collection, doc, getDoc, getDocs, query, where, QuerySnapshot, DocumentSnapshot, addDoc, serverTimestamp } from 'firebase/firestore';
+import { initializeAppCheck, ReCaptchaV3Provider, getToken as getAppCheckToken, AppCheck } from 'firebase/app-check';
 import { environment } from '../../../environments/environment';
 import { LoggingService } from './logging.service';
 
@@ -8,6 +9,7 @@ import { LoggingService } from './logging.service';
 export class FirebaseService {
   private app: FirebaseApp | null = null;
   private db: Firestore | null = null;
+  private appCheck: AppCheck | null = null;
 
   constructor(private loggingService: LoggingService) {
     if (environment.firebaseConfig && environment.firebaseConfig.apiKey) {
@@ -23,8 +25,49 @@ export class FirebaseService {
         this.app = getApp();
       }
       this.db = getFirestore(this.app);
+      
+      // Initialize Firebase App Check with reCAPTCHA v3
+      this.initializeAppCheck();
     } catch (error) {
       this.loggingService.error('Firebase initialization error', error);
+    }
+  }
+
+  private initializeAppCheck() {
+    try {
+      // Only initialize App Check if reCAPTCHA site key is configured
+      if (!environment.recaptchaSiteKey) {
+        this.loggingService.warn('Firebase App Check: reCAPTCHA site key not configured. App Check will not be active.');
+        return;
+      }
+
+      // Initialize App Check with reCAPTCHA v3 provider
+      this.appCheck = initializeAppCheck(this.app!, {
+        provider: new ReCaptchaV3Provider(environment.recaptchaSiteKey),
+        isTokenAutoRefreshEnabled: true // Automatically refresh tokens
+      });
+
+      this.loggingService.info('Firebase App Check initialized successfully');
+    } catch (error) {
+      // Log error but don't block app initialization
+      this.loggingService.error('Firebase App Check initialization error', error);
+    }
+  }
+
+  /**
+   * Get App Check token (useful for debugging or custom API calls)
+   * @returns Promise<string | null> App Check token or null if unavailable
+   */
+  async getAppCheckToken(): Promise<string | null> {
+    try {
+      if (!this.appCheck) {
+        return null;
+      }
+      const { token } = await getAppCheckToken(this.appCheck);
+      return token;
+    } catch (error) {
+      this.loggingService.warn('Failed to get App Check token', error);
+      return null;
     }
   }
 

@@ -55,7 +55,10 @@ export class AppComponent implements OnInit, OnDestroy {
     this.routerSubscription = this.router.events
       .pipe(filter((event): event is NavigationEnd => event instanceof NavigationEnd))
       .subscribe((event) => {
-        const isStandalonePage = event.url === '/privacy' || event.url === '/terms' || event.url === '/contact';
+        const isStandalonePage = event.url === '/privacy' || 
+                                event.url === '/terms' || 
+                                event.url === '/contact' ||
+                                event.url.startsWith('/admin');
         this.showMainContent.set(!isStandalonePage);
         
         this.analyticsService.trackEvent('view', 'page_view', {
@@ -65,7 +68,10 @@ export class AppComponent implements OnInit, OnDestroy {
       });
     
     const currentUrl = this.router.url;
-    const isStandalonePage = currentUrl === '/privacy' || currentUrl === '/terms' || currentUrl === '/contact';
+    const isStandalonePage = currentUrl === '/privacy' || 
+                            currentUrl === '/terms' || 
+                            currentUrl === '/contact' ||
+                            currentUrl.startsWith('/admin');
     this.showMainContent.set(!isStandalonePage);
     
     this.analyticsService.trackEvent('view', 'page_view', {

@@ -1,0 +1,146 @@
+<div class="admin-dashboard">
+  <header class="dashboard-header">
+    <div class="header-content">
+      <div>
+        <h1>Admin Dashboard</h1>
+        <p *ngIf="currentUsername" class="admin-username">Logged in as: <strong>{{ currentUsername }}</strong></p>
+      </div>
+      <button class="btn-logout" (click)="logout()">Logout</button>
+    </div>
+  </header>
+
+  <nav class="dashboard-nav">
+    <button 
+      class="nav-tab" 
+      [class.active]="activeTab === 'overview'"
+      (click)="setActiveTab('overview')"
+    >
+      Overview
+    </button>
+    <button 
+      class="nav-tab" 
+      [class.active]="activeTab === 'analytics'"
+      (click)="setActiveTab('analytics')"
+    >
+      Analytics
+    </button>
+    <button 
+      class="nav-tab" 
+      [class.active]="activeTab === 'data'"
+      (click)="setActiveTab('data')"
+    >
+      Data Management
+    </button>
+  </nav>
+
+  <main class="dashboard-content">
+    <!-- Overview Tab -->
+    <div *ngIf="activeTab === 'overview'" class="overview-tab">
+      <div class="stats-grid">
+        <div class="stat-card">
+          <h3>Total Documents</h3>
+          <div class="stat-value">
+            {{ usageStats ? totalDocuments : '...' }}
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <h3>Estimated Storage</h3>
+          <div class="stat-value">
+            {{ usageStats ? formatBytes(usageStats.totalStorage) : '...' }}
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <h3>Collections</h3>
+          <div class="stat-value">
+            {{ usageStats ? collectionCount : '...' }}
+          </div>
+        </div>
+      </div>
+
+      <div class="collections-list">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+          <div>
+            <h2 style="margin: 0;">Collection Statistics</h2>
+            <p style="margin: 0.25rem 0 0 0; font-size: 0.85rem; color: var(--text-medium, #5a5a5a);">
+              ⚠️ Auto-refresh disabled to reduce Firestore reads. Click refresh manually when needed.
+            </p>
+          </div>
+          <button (click)="loadUsageStats()" class="btn-refresh-stats" [disabled]="loading" title="Refresh collection counts (cached for 30 minutes)">
+            {{ loading ? 'Refreshing...' : '🔄 Refresh' }}
+          </button>
+        </div>
+        <div *ngIf="loading" class="loading">Loading collection counts...</div>
+        
+        <div *ngIf="errorMessage" class="error-box">
+          <p><strong>⚠️ Warning:</strong> {{ errorMessage }}</p>
+          <div *ngIf="errorMessage.includes('quota') || errorMessage.includes('Quota')" style="margin-top: 0.5rem; padding: 0.75rem; background: rgba(244, 162, 97, 0.1); border-left: 3px solid var(--accent-color, #F4A261); border-radius: 4px;">
+            <strong>💡 Tips to reduce quota usage:</strong>
+            <ul style="margin: 0.5rem 0 0 1.5rem; padding: 0;">
+              <li>Wait 10-15 minutes before refreshing (quota resets hourly)</li>
+              <li>Collection counts are cached for 30 minutes</li>
+              <li>Use date range filters in Analytics tab (reduces reads significantly)</li>
+              <li>Avoid rapid page refreshes</li>
+              <li>Analytics limited to 500 documents per query</li>
+            </ul>
+          </div>
+          <button (click)="loadUsageStats()" class="btn-retry" [disabled]="loading">
+            Retry Loading Counts
+          </button>
+        </div>
+        
+        <table *ngIf="usageStats && !loading" class="collections-table">
+          <thead>
+            <tr>
+              <th>Collection</th>
+              <th>Document Count</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let collection of collectionKeys">
+              <td>{{ collection }}</td>
+              <td>{{ getDocumentCount(collection) | number }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="info-box">
+        <h3>💰 Cost Optimization Notice</h3>
+        <p>
+          <strong>Firestore Read Optimization:</strong> To reduce costs and stay within the free tier (50K reads/day):
+        </p>
+        <ul style="margin: 0.5rem 0; padding-left: 1.5rem;">
+          <li>Collection counts are <strong>cached for 30 minutes</strong> - refresh manually when needed</li>
+          <li>Auto-refresh is <strong>disabled</strong> to prevent excessive reads</li>
+          <li>Each collection count uses <strong>1 read</strong> (or ~100 reads if using fallback method)</li>
+          <li>Analytics queries are limited to <strong>500 documents</strong> per query</li>
+          <li>Analytics data is <strong>cached for 15 minutes</strong></li>
+        </ul>
+        <p style="margin-top: 0.75rem;">
+          For detailed Firebase usage statistics (reads, writes, network usage), 
+          please check the Firebase Console.
+        </p>
+        <a 
+          href="https://console.firebase.google.com/project/learner-s-career-path/usage" 
+          target="_blank"
+          class="btn-external"
+        >
+          Open Firebase Console →
+        </a>
+      </div>
+    </div>
+
+    <!-- Analytics Tab -->
+    <div *ngIf="activeTab === 'analytics'">
+      <app-analytics-dashboard></app-analytics-dashboard>
+    </div>
+
+    <!-- Data Management Tab -->
+    <div *ngIf="activeTab === 'data'">
+      <app-data-management></app-data-management>
+    </div>
+  </main>
+</div>
+

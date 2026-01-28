@@ -1,0 +1,165 @@
+<div class="analytics-dashboard">
+  <div class="dashboard-header">
+    <h2>Analytics Dashboard</h2>
+    <p style="margin: 0.5rem 0; color: #666; font-size: 0.9rem;">
+      Analyzing <strong>userEvents</strong> collection ({{ stats?.totalEvents || '...' }} events)
+      <span *ngIf="stats && stats.totalEvents >= 500" style="color: var(--accent-color, #F4A261); font-weight: 500;">
+        ⚠️ Showing first 500 events (cost optimization - use date filters for specific periods)
+      </span>
+      <span *ngIf="!loading && !errorMessage" style="color: var(--text-medium, #5a5a5a); font-size: 0.85rem; display: block; margin-top: 0.25rem;">
+        💰 Data cached for 15 minutes to reduce Firestore reads
+      </span>
+    </p>
+    <div class="date-range-selector">
+      <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; margin-bottom: 0.5rem;">
+        <label style="font-weight: bold;">Quick Filters:</label>
+        <button (click)="loadAllEvents()" class="btn-filter" [class.active]="!dateRange" title="Load all events">
+          All Events
+        </button>
+        <button (click)="loadLast90Days()" class="btn-filter" title="Last 90 days">Last 90 Days</button>
+        <button (click)="loadLast30Days()" class="btn-filter" title="Last 30 days">Last 30 Days</button>
+      </div>
+      <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+        <label>Custom Date Range:</label>
+        <input 
+          type="date" 
+          [ngModel]="startDateString"
+          (ngModelChange)="startDateString = $event; onDateRangeChange()"
+          class="date-input"
+          placeholder="Start date"
+        />
+        <span>to</span>
+        <input 
+          type="date" 
+          [ngModel]="endDateString"
+          (ngModelChange)="endDateString = $event; onDateRangeChange()"
+          class="date-input"
+          placeholder="End date"
+        />
+        <button (click)="loadAnalytics()" class="btn-refresh">Apply</button>
+      </div>
+    </div>
+  </div>
+
+  <div *ngIf="loading" class="loading">
+    <p>Loading analytics data...</p>
+  </div>
+
+  <div *ngIf="errorMessage" class="error-message">
+    <h3>Error Loading Analytics</h3>
+    <p>{{ errorMessage }}</p>
+    <div class="error-hint">
+      <div *ngIf="errorMessage.includes('quota') || errorMessage.includes('Quota')" style="margin-bottom: 1rem; padding: 1rem; background: rgba(244, 162, 97, 0.15); border-left: 4px solid var(--accent-color, #F4A261); border-radius: 4px;">
+          <strong>💡 Firestore Quota Exceeded - Cost Optimization Tips</strong>
+        <ul style="margin: 0.5rem 0 0 1.5rem; padding: 0;">
+          <li><strong>Wait 10-15 minutes</strong> before trying again (quota resets hourly)</li>
+          <li><strong>Use date range filters</strong> - Select specific date ranges instead of "All Events"</li>
+          <li><strong>Analytics limited to 500 documents</strong> per query to minimize reads</li>
+          <li><strong>Data is cached for 15 minutes</strong> - avoid rapid refreshes</li>
+          <li><strong>Free tier: 50K reads/day</strong> - each analytics query uses ~500 reads</li>
+          <li>Consider upgrading to Blaze plan if you need more frequent access</li>
+        </ul>
+      </div>
+      <div *ngIf="!errorMessage.includes('quota') && !errorMessage.includes('Quota')">
+        <strong>Possible causes:</strong>
+        <ul>
+          <li>No user events have been collected yet</li>
+          <li>Firestore index may be missing (check Firebase Console)</li>
+          <li>Network or permission issues</li>
+        </ul>
+      </div>
+      <button (click)="loadAnalytics()" class="btn-retry">Retry</button>
+    </div>
+  </div>
+
+  <div *ngIf="!loading && !errorMessage && stats" class="analytics-content">
+    <!-- Summary Stats -->
+    <div class="summary-stats">
+      <div class="summary-card">
+        <h3>Total Events</h3>
+        <div class="stat-value">{{ stats.totalEvents | number }}</div>
+      </div>
+      <div class="summary-card">
+        <h3>Conversion Rate</h3>
+        <div class="stat-value">{{ stats.conversionRate | number:'1.2-2' }}%</div>
+      </div>
+      <div class="summary-card">
+        <h3>Avg Session Duration</h3>
+        <div class="stat-value">{{ (stats.averageSessionDuration / 60) | number:'1.1-1' }} min</div>
+      </div>
+    </div>
+
+    <!-- Charts Grid -->
+    <div class="charts-grid">
+      <div class="chart-card">
+        <h3>Events by Type</h3>
+        <div class="chart-container">
+          <canvas #eventsByTypeChart></canvas>
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <h3>Events by Country</h3>
+        <div class="chart-container">
+          <canvas #eventsByCountryChart></canvas>
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <h3>Events by Device</h3>
+        <div class="chart-container">
+          <canvas #eventsByDeviceChart></canvas>
+        </div>
+      </div>
+
+      <div class="chart-card">
+        <h3>Daily Events Trend</h3>
+        <div class="chart-container">
+          <canvas #dailyEventsChart></canvas>
+        </div>
+      </div>
+
+      <div *ngIf="hasTrafficSourceData()" class="chart-card">
+        <h3>Traffic Sources</h3>
+        <div class="chart-container">
+          <canvas #trafficSourceChart></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Top Events Table -->
+    <div class="top-events-section">
+      <h3>Top Events</h3>
+      <table class="events-table">
+        <thead>
+          <tr>
+            <th>Event Name</th>
+            <th>Count</th>
+            <th>Percentage</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let event of stats.topEvents">
+            <td>{{ event.eventName }}</td>
+            <td>{{ event.count | number }}</td>
+            <td>{{ (event.count / stats.totalEvents * 100) | number:'1.2-2' }}%</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div *ngIf="!loading && !errorMessage && !stats" class="no-data">
+    <h3>No Analytics Data</h3>
+    <p>No user events have been collected yet for the selected date range.</p>
+    <div class="hint">
+      <strong>To generate analytics data:</strong>
+      <ul>
+        <li>Use the main application to generate user events</li>
+        <li>Events are automatically tracked when users interact with the app</li>
+        <li>Try adjusting the date range to see if there's data in a different period</li>
+      </ul>
+    </div>
+  </div>
+</div>
+

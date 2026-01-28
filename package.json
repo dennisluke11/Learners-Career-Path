@@ -14,7 +14,8 @@
     "deploy:hosting": "npm run build:prod && firebase deploy --only hosting",
     "deploy:functions": "firebase deploy --only functions",
     "deploy:firestore": "firebase deploy --only firestore:rules,firestore:indexes",
-    "set-only-za-active": "node scripts/set-only-south-africa-active.js"
+    "set-only-za-active": "node scripts/set-only-south-africa-active.js",
+    "create-admin": "node scripts/create-admin-users.js"
   },
   "dependencies": {
     "@angular/animations": "~17.3.0",

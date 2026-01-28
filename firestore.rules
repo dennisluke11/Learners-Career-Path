@@ -40,8 +40,10 @@ service cloud.firestore {
     }
     
     // User events - public write for analytics
+    // TODO: In production, restrict read access using Firebase Auth with custom claims
+    // For now, allowing read access for admin dashboard functionality
     match /userEvents/{document=**} {
-      allow read: if false; // Only admins can read
+      allow read: if true; // TODO: Restrict to authenticated admins in production
       allow create: if true; // Anyone can create events
       allow update, delete: if false;
     }
@@ -67,6 +69,14 @@ service cloud.firestore {
                      request.resource.data.updatedAt is string;
       // Only server (Firebase Functions) can read tokens
       allow read: if false;
+    }
+    
+    // Admin users collection - allow read for authentication
+    // TODO: In production, restrict this to authenticated requests only
+    // For now, allowing read access for admin login functionality
+    match /adminUsers/{userId} {
+      allow read: if true; // Allow reading admin users for authentication
+      allow write: if false; // Only server/admin SDK can write (configure separately)
     }
     
     // Default: deny all other access

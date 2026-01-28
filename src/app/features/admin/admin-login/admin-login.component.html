@@ -1,0 +1,50 @@
+<div class="admin-login-container">
+  <div class="login-card">
+    <h1>Admin Dashboard</h1>
+    <p class="subtitle">Enter your admin credentials to continue</p>
+    
+    <form (ngSubmit)="login()" class="login-form">
+      <div class="form-group">
+        <label for="username">Username</label>
+        <input
+          type="text"
+          id="username"
+          [(ngModel)]="username"
+          name="username"
+          class="form-control"
+          placeholder="Enter admin username"
+          required
+          autocomplete="username"
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input
+          type="password"
+          id="password"
+          [(ngModel)]="password"
+          name="password"
+          class="form-control"
+          placeholder="Enter admin password"
+          required
+          autocomplete="current-password"
+        />
+      </div>
+
+      <div *ngIf="error" class="error-message">
+        {{ error }}
+      </div>
+
+      <button 
+        type="submit" 
+        class="btn btn-primary"
+        [disabled]="loading || !username || !password"
+      >
+        <span *ngIf="!loading">Login</span>
+        <span *ngIf="loading">Logging in...</span>
+      </button>
+    </form>
+  </div>
+</div>
+

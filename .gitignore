@@ -47,6 +47,8 @@ Thumbs.db
 .env.*
 !.env.example
 src/environments/environment.local.ts
+src/environments/environment.ts
+src/environments/environment.prod.ts
 
 # Firebase Functions
 functions/node_modules/

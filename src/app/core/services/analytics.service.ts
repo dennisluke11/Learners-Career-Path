@@ -21,6 +21,7 @@ export class AnalyticsService {
   private sessionInteractions: number = 0;
   private visitCount: number = 0;
   private lastVisitDate: string | null = null;
+  private userId: string = this.getOrCreateUserId();
 
   constructor(
     private firebaseService: FirebaseService,
@@ -213,6 +214,7 @@ export class AnalyticsService {
       elementText: metadata?.elementText,
       url: window.location.href,
       metadata: this.sanitizeMetadata(metadata),
+      userId: this.userId,
       sessionId: this.sessionId,
       timestamp: new Date(),
       country: metadata?.country,
@@ -361,6 +363,7 @@ export class AnalyticsService {
           elementType: event.elementType,
           elementText: event.elementText,
           url: event.url,
+          userId: event.userId,
           sessionId: event.sessionId,
           timestamp: serverTimestamp(),
           userAgent: event.userAgent,
@@ -417,6 +420,42 @@ export class AnalyticsService {
 
   private generateSessionId(): string {
     return `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  /**
+   * Get or create a persistent user ID
+   * This ID persists across sessions and is stored in localStorage
+   * It's used to identify unique users for analytics
+   */
+  private getOrCreateUserId(): string {
+    const STORAGE_KEY = 'analytics_user_id';
+    
+    try {
+      let userId = localStorage.getItem(STORAGE_KEY);
+      
+      if (!userId) {
+        // Generate a new unique user ID
+        // Format: user_<timestamp>_<random>
+        userId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        localStorage.setItem(STORAGE_KEY, userId);
+        this.loggingService.info('Generated new user ID:', userId);
+      }
+      
+      return userId;
+    } catch (error) {
+      // If localStorage is not available, generate a temporary ID
+      // This won't persist but at least we can track the session
+      this.loggingService.warn('localStorage not available, using temporary user ID');
+      return `temp_user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    }
+  }
+
+  /**
+   * Get the current user ID
+   * Useful for external components that need to know the user ID
+   */
+  getUserId(): string {
+    return this.userId;
   }
 
   private removeUndefinedValues(obj: { [key: string]: any }): { [key: string]: any } {

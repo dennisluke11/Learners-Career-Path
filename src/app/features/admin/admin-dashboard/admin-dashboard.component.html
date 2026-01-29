@@ -37,6 +37,16 @@
     <!-- Overview Tab -->
     <div *ngIf="activeTab === 'overview'" class="overview-tab">
       <div class="stats-grid">
+        <div class="stat-card highlight-card">
+          <h3>Total Users</h3>
+          <div class="stat-value">
+            {{ loadingUsers ? '...' : (totalUsers | number) }}
+          </div>
+          <div class="stat-subtitle" *ngIf="analyticsStats && analyticsStats.uniqueUsers > 0">
+            {{ analyticsStats.newUsers | number }} new, {{ analyticsStats.returningUsers | number }} returning
+          </div>
+        </div>
+
         <div class="stat-card">
           <h3>Total Documents</h3>
           <div class="stat-value">

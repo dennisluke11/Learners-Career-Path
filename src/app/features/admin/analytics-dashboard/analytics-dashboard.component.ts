@@ -18,6 +18,7 @@ export class AnalyticsDashboardComponent implements OnInit, AfterViewInit {
   @ViewChild('eventsByCountryChart') eventsByCountryChart!: ElementRef<HTMLCanvasElement>;
   @ViewChild('eventsByDeviceChart') eventsByDeviceChart!: ElementRef<HTMLCanvasElement>;
   @ViewChild('dailyEventsChart') dailyEventsChart!: ElementRef<HTMLCanvasElement>;
+  @ViewChild('dailyUniqueUsersChart') dailyUniqueUsersChart!: ElementRef<HTMLCanvasElement>;
   @ViewChild('trafficSourceChart') trafficSourceChart!: ElementRef<HTMLCanvasElement>;
 
   stats: AnalyticsStats | null = null;
@@ -228,24 +229,108 @@ export class AnalyticsDashboardComponent implements OnInit, AfterViewInit {
       }
     }
 
-    // Daily Events Chart
+    // Daily Events Chart (with unique users if available)
     if (this.dailyEventsChart) {
       const ctx = this.dailyEventsChart.nativeElement.getContext('2d');
       if (ctx) {
+        const labels = this.stats.dailyEvents.map(e => {
+          const date = new Date(e.date);
+          return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        });
+        
+        const datasets: any[] = [{
+          label: 'Events',
+          data: this.stats.dailyEvents.map(e => e.count),
+          borderColor: '#667eea',
+          backgroundColor: 'rgba(102, 126, 234, 0.1)',
+          fill: true,
+          tension: 0.4,
+          yAxisID: 'y'
+        }];
+        
+        // Add unique users dataset if available
+        const dailyUniqueUsers = this.stats.dailyUniqueUsers;
+        if (dailyUniqueUsers && dailyUniqueUsers.length > 0) {
+          // Match daily unique users with daily events by date
+          const uniqueUsersData = this.stats.dailyEvents.map(dailyEvent => {
+            const matchingDay = dailyUniqueUsers.find(du => du.date === dailyEvent.date);
+            return matchingDay ? matchingDay.count : 0;
+          });
+          
+          datasets.push({
+            label: 'Unique Users',
+            data: uniqueUsersData,
+            borderColor: '#43e97b',
+            backgroundColor: 'rgba(67, 233, 123, 0.1)',
+            fill: true,
+            tension: 0.4,
+            yAxisID: 'y1'
+          });
+        }
+        
         const chart = new Chart(ctx, {
           type: 'line',
           data: {
-            labels: this.stats.dailyEvents.map(e => {
+            labels: labels,
+            datasets: datasets
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                display: true,
+                position: 'top'
+              }
+            },
+            scales: {
+              y: {
+                type: 'linear',
+                display: true,
+                position: 'left',
+                beginAtZero: true,
+                title: {
+                  display: true,
+                  text: 'Events'
+                }
+              },
+              y1: {
+                type: 'linear',
+                display: datasets.length > 1,
+                position: 'right',
+                beginAtZero: true,
+                title: {
+                  display: true,
+                  text: 'Unique Users'
+                },
+                grid: {
+                  drawOnChartArea: false
+                }
+              }
+            }
+          }
+        });
+        this.charts.push(chart);
+      }
+    }
+
+    // Daily Unique Users Chart (separate chart)
+    if (this.dailyUniqueUsersChart && this.stats.dailyUniqueUsers && this.stats.dailyUniqueUsers.length > 0) {
+      const ctx = this.dailyUniqueUsersChart.nativeElement.getContext('2d');
+      if (ctx) {
+        const chart = new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: this.stats.dailyUniqueUsers.map(e => {
               const date = new Date(e.date);
               return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
             }),
             datasets: [{
-              label: 'Events',
-              data: this.stats.dailyEvents.map(e => e.count),
-              borderColor: '#667eea',
-              backgroundColor: 'rgba(102, 126, 234, 0.1)',
-              fill: true,
-              tension: 0.4
+              label: 'Unique Users',
+              data: this.stats.dailyUniqueUsers.map(e => e.count),
+              backgroundColor: '#43e97b',
+              borderColor: '#2dd4bf',
+              borderWidth: 1
             }]
           },
           options: {
@@ -258,7 +343,10 @@ export class AnalyticsDashboardComponent implements OnInit, AfterViewInit {
             },
             scales: {
               y: {
-                beginAtZero: true
+                beginAtZero: true,
+                ticks: {
+                  stepSize: 1
+                }
               }
             }
           }

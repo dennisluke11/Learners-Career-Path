@@ -15,7 +15,9 @@ import { DataManagementComponent } from '../data-management/data-management.comp
 export class AdminDashboardComponent implements OnInit, OnDestroy {
   activeTab: 'overview' | 'analytics' | 'data' = 'overview';
   usageStats: UsageStats | null = null;
+  analyticsStats: AnalyticsStats | null = null;
   loading = true;
+  loadingUsers = false;
   errorMessage: string | null = null;
   refreshInterval: any;
   currentUsername: string | null = null;
@@ -33,6 +35,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
 
     this.currentUsername = this.adminService.getCurrentAdminUsername();
     this.loadUsageStats();
+    this.loadUserStats();
     // DISABLED auto-refresh to save on Firestore reads and costs
     // User must manually refresh if needed
     // Auto-refresh was causing excessive reads (215K+ per day)
@@ -88,8 +91,31 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     }
   }
 
+  async loadUserStats() {
+    try {
+      this.loadingUsers = true;
+      // Load analytics stats to get unique users count
+      // Using undefined date range to get all users
+      this.analyticsStats = await this.adminService.getAnalyticsStats();
+    } catch (error: any) {
+      console.error('Error loading user stats', error);
+      // Don't show error for user stats - it's optional
+      this.analyticsStats = null;
+    } finally {
+      this.loadingUsers = false;
+    }
+  }
+
+  get totalUsers(): number {
+    return this.analyticsStats?.uniqueUsers || 0;
+  }
+
   setActiveTab(tab: 'overview' | 'analytics' | 'data') {
     this.activeTab = tab;
+    // Reload user stats when switching to overview tab
+    if (tab === 'overview' && !this.analyticsStats) {
+      this.loadUserStats();
+    }
   }
 
   logout() {

@@ -27,12 +27,17 @@ export interface UsageStats {
 
 export interface AnalyticsStats {
   totalEvents: number;
+  uniqueUsers: number;
+  uniqueSessions: number;
+  newUsers: number; // Users with visitCount === 1
+  returningUsers: number; // Users with visitCount > 1
   eventsByType: { [type: string]: number };
   eventsByCountry: { [country: string]: number };
   eventsByDevice: { [device: string]: number };
   eventsByTrafficSource: { [source: string]: number };
   recentEvents: AnalyticsEvent[];
   dailyEvents: { date: string; count: number }[];
+  dailyUniqueUsers: { date: string; count: number }[]; // Unique users per day
   topEvents: { eventName: string; count: number }[];
   conversionRate: number;
   averageSessionDuration: number;
@@ -547,15 +552,41 @@ export class AdminService {
         }
       }
 
+      // Calculate unique users and sessions
+      const uniqueUserIds = new Set<string>();
+      const uniqueSessionIds = new Set<string>();
+      const newUserIds = new Set<string>();
+      const returningUserIds = new Set<string>();
+      
+      events.forEach(event => {
+        if (event.userId) {
+          uniqueUserIds.add(event.userId);
+          // Check if this is a new user (visitCount === 1) or returning user
+          if (event.visitCount === 1) {
+            newUserIds.add(event.userId);
+          } else if (event.visitCount && event.visitCount > 1) {
+            returningUserIds.add(event.userId);
+          }
+        }
+        if (event.sessionId) {
+          uniqueSessionIds.add(event.sessionId);
+        }
+      });
+
       // Calculate statistics
       const stats: AnalyticsStats = {
         totalEvents: events.length,
+        uniqueUsers: uniqueUserIds.size,
+        uniqueSessions: uniqueSessionIds.size,
+        newUsers: newUserIds.size,
+        returningUsers: returningUserIds.size,
         eventsByType: {},
         eventsByCountry: {},
         eventsByDevice: {},
         eventsByTrafficSource: {},
         recentEvents: events.slice(0, 50),
         dailyEvents: [],
+        dailyUniqueUsers: [],
         topEvents: [],
         conversionRate: 0,
         averageSessionDuration: 0
@@ -579,14 +610,29 @@ export class AdminService {
         }
       });
 
-      // Calculate daily events
+      // Calculate daily events and daily unique users
       const dailyMap: { [date: string]: number } = {};
+      const dailyUniqueUsersMap: { [date: string]: Set<string> } = {};
+      
       events.forEach(event => {
         const date = new Date(event.timestamp).toISOString().split('T')[0];
         dailyMap[date] = (dailyMap[date] || 0) + 1;
+        
+        // Track unique users per day
+        if (event.userId) {
+          if (!dailyUniqueUsersMap[date]) {
+            dailyUniqueUsersMap[date] = new Set<string>();
+          }
+          dailyUniqueUsersMap[date].add(event.userId);
+        }
       });
+      
       stats.dailyEvents = Object.entries(dailyMap)
         .map(([date, count]) => ({ date, count }))
+        .sort((a, b) => a.date.localeCompare(b.date));
+      
+      stats.dailyUniqueUsers = Object.entries(dailyUniqueUsersMap)
+        .map(([date, userIds]) => ({ date, count: userIds.size }))
         .sort((a, b) => a.date.localeCompare(b.date));
 
       // Calculate top events
